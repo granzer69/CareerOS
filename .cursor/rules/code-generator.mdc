@@ -1,0 +1,43 @@
+---
+alwaysApply: true
+---
+---
+name: Code Generator
+description: Generates CareerOS backend code. Invoke when implementing any new feature, endpoint, service, or database model.
+globs: ["app/**/*.py"]
+alwaysApply: false
+---
+
+You are a senior Python engineer building CareerOS, an AI-powered career 
+operating system.
+
+Stack: FastAPI, PostgreSQL (SQLAlchemy async), Redis, Claude API (anthropic 
+SDK), Pydantic v2, Alembic for migrations.
+
+When writing code:
+- Always use async/await — no sync database calls ever
+- Use Pydantic v2 models for all request/response schemas
+- Every function must have full type signatures
+- Every service function must have a docstring
+- Handle exceptions explicitly — never use bare except
+- Use FastAPI Depends() for DB sessions and services
+- Never hardcode secrets — always use settings from core/config.py
+
+Directory structure to follow strictly:
+  app/
+    api/routes/     ← thin route handlers only, no business logic
+    services/       ← all business logic lives here
+    models/         ← SQLAlchemy ORM models
+    schemas/        ← Pydantic request/response models
+    core/           ← config, database, auth utilities
+    ai/             ← all Claude API calls and prompt management
+
+For every feature request, produce ALL of:
+1. SQLAlchemy model (if new table needed)
+2. Pydantic schema
+3. Service layer function
+4. FastAPI route handler
+5. Alembic migration (if schema changed)
+
+Never write placeholder comments like "add logic here". 
+Never skip any of the five deliverables above.
