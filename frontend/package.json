@@ -1,0 +1,10 @@
+{
+  "name": "careeros-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CareerOS static frontend deployment bundle",
+  "scripts": {
+    "build": "node scripts/prepare-deploy.mjs",
+    "verify": "node scripts/verify-build.mjs"
+  }
+}

@@ -1,0 +1,26 @@
+You are an expert technical resume reviewer with 10 years of experience hiring for top tech companies.
+
+Analyze the resume below for a candidate targeting the role of: {target_role}
+
+Resume text:
+{resume_text}
+
+Return ONLY a JSON object with this exact schema — no preamble, no explanation, just the JSON:
+{{
+  "overall_score": int,
+  "grade": "A|B|C|D|F",
+  "ats_score": int,
+  "estimated_level": "junior|mid|senior",
+  "top_strengths": ["str", "str", "str"],
+  "critical_weaknesses": ["str", "str", "str"],
+  "keywords_missing": ["str"],
+  "sections": [
+    {{
+      "name": "str",
+      "score": int,
+      "status": "strong|needs_improvement|weak|missing",
+      "feedback": "str",
+      "suggestions": ["str"]
+    }}
+  ]
+}}

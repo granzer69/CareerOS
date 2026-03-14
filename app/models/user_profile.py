@@ -4,10 +4,10 @@ from datetime import datetime, timezone
 from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base
+from app.models.base import Base, JsonColumn
 from app.models.enums import ExperienceLevelEnum
 
 
@@ -26,7 +26,7 @@ class UserProfile(Base):
         index=True,
         unique=True,
     )
-    skills: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    skills: Mapped[list[str]] = mapped_column(JsonColumn, nullable=False, default=list)
     target_role: Mapped[str] = mapped_column(String, nullable=False)
     experience_level: Mapped[ExperienceLevelEnum] = mapped_column(
         SAEnum(
