@@ -1,44 +1,86 @@
 # CareerOS
 
-CareerOS is a FastAPI backend with a static React frontend for resume analysis,
-JWT authentication, user profiles, PostgreSQL persistence, and Anthropic Claude.
+FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and PostgreSQL persistence — with Anthropic Claude producing structured analysis results.
 
-## Local development
+> Honest scope: this is a working resume-analysis product surface (auth, profiles, Claude analysis, deploy configs). It is **not** a fully autonomous job-application system. For phased job discovery / match orchestration, see [Range-Apply](https://github.com/granzer69/Range-Apply).
 
-1. Copy `.env.example` to `.env` and use the local override values.
-2. Install backend dependencies with `pip install -r requirements.txt`.
-3. Run migrations with `alembic upgrade head`.
-4. Start the API with `uvicorn app.main:app --reload`.
-5. In `frontend`, set `BACKEND_URL` and run `npm run build`.
+## Overview
 
-## Render backend
+CareerOS helps a signed-in user upload a resume, choose a target role, and receive a validated analysis payload from Claude. Profiles and analysis history are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
 
-- Root directory: `.`
-- Build command: `pip install -r requirements-prod.txt`
-- Pre-deploy command: `alembic upgrade head`
-- Start command: `bash scripts/start.sh`
-- Health check: `/health`
+## Architecture
 
-Required environment variables are documented in `.env.example`.
+```text
+React frontend  →  FastAPI (JWT)  →  PostgreSQL
+                         │
+                         ├─ resume parse (PDF/DOCX)
+                         └─ Anthropic Claude → ResumeAnalysisResult (Pydantic)
+```
 
-## Vercel frontend
+## Tech stack
 
-- Root directory: `frontend`
-- Build command: `npm run build`
-- Output directory: `build`
-- Environment variable: `BACKEND_URL=https://<render-service>.onrender.com`
+| Layer | Tech (in repo) |
+|------|----------------|
+| API | FastAPI, Uvicorn, Pydantic Settings |
+| Auth | JWT (`python-jose`) |
+| DB | SQLAlchemy, Alembic, asyncpg / aiosqlite |
+| AI | Anthropic Claude (`claude-sonnet-4-20250514`), prompt template + JSON validation with retry |
+| Resume I/O | PyPDF2, python-docx |
+| Frontend | React (Vite build), deploy via Vercel |
+| Deploy | Render (`render.yaml`), Vercel (`frontend/vercel.json`) |
+| Tests | pytest |
 
-After Vercel assigns the production domain, set the backend
-`ALLOWED_ORIGINS` value to that exact HTTPS origin and redeploy Render.
+Also listed in requirements (available for extension): ChromaDB, Redis — not required for the core resume-analysis path described above.
 
-## Verification
+## Implemented features
 
-Run:
+- User registration / login with JWT
+- User profile CRUD
+- Resume upload → text extraction → Claude analysis → persisted `resume_analyses`
+- Health endpoint and CORS configuration for split frontend/backend deploy
+- Alembic migrations for users, profiles, resume analyses
+- Unit / integration tests for auth and profile flows
+- Deployment scripts and verify helpers
+
+## Partially implemented / stubbed
+
+- **Roadmap API** (`/roadmap`) returns a placeholder `"coming soon"` response
+- Broader “career OS / autonomous apply” ambitions live primarily in **Range-Apply**, not here
+
+## Key engineering decisions
+
+- **Structured LLM output**: Claude response is parsed as JSON and validated with Pydantic; malformed JSON triggers a bounded retry
+- **Prompt as file**: analysis prompt kept under `app/ai/prompts/` for inspectability
+- **Migrations first**: schema changes via Alembic rather than ad-hoc create-all in production paths
+- **Split deploy**: API on Render, frontend on Vercel, with explicit `ALLOWED_ORIGINS` / `BACKEND_URL`
+
+## Getting started
+
+1. Copy `.env.example` → `.env` (set `ANTHROPIC_API_KEY`, DB URL, JWT secret, CORS origins).
+2. `pip install -r requirements.txt`
+3. `alembic upgrade head`
+4. `uvicorn app.main:app --reload`
+5. In `frontend`: set `BACKEND_URL`, then `npm run build`
+
+### Deploy notes
+
+- **Render**: build `pip install -r requirements-prod.txt`, pre-deploy `alembic upgrade head`, start `bash scripts/start.sh`, health `/health`
+- **Vercel**: root `frontend`, build `npm run build`, env `BACKEND_URL=https://<render-service>.onrender.com`
+
+## Testing
 
 ```bash
 pytest
 alembic heads
-cd frontend
-npm run build
-npm run verify
+cd frontend && npm run build && npm run verify
 ```
+
+## Future improvements
+
+- Flesh out roadmap / career-planning endpoints
+- Tighten production observability and rate limits
+- Clearer separation docs vs Range-Apply product surface
+
+## License / status
+
+Active personal / educational project. Treat autonomous job submission as **out of scope** for this repository.
