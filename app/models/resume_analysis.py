@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID as PyUUID, uuid4
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,11 +12,19 @@ from app.models.base import Base, JsonColumn
 
 class ResumeAnalysis(Base):
     __tablename__ = "resume_analyses"
+    __table_args__ = (
+        Index("ix_resume_analyses_user_id_created_at", "user_id", "created_at"),
+    )
 
     id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
+    )
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
     )
     session_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),

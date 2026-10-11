@@ -23,7 +23,7 @@ frontend/.env.*
 
 # Local model weights (never commit GGUF files)
 *.gguf
-models/
+/models/
 
 # Test artifacts
 test_output.txt

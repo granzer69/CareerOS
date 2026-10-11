@@ -41,6 +41,22 @@ class ResumeAnalysisResult(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class ResumeAnalysisSummary(BaseModel):
+    """Safe list item for the authenticated owner's analysis history."""
+
+    id: UUID
+    file_name: str
+    target_role: str
+    overall_score: int
+    grade: str
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+        "extra": "forbid",
+    }
+
+
 class ResumeAnalysisRead(BaseModel):
     """Full response returned to the client after analysis."""
 

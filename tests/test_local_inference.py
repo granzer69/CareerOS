@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,6 +19,7 @@ from app.ai.local_inference import (
     require_local_model_file,
 )
 from app.services.resume_service import ResumeAnalysisFailedError, ResumeService
+from app.core.auth import create_access_token
 from app.core.config import settings
 from app.main import app
 from app.schemas.resume_analysis import ResumeAnalysisRead
@@ -75,6 +76,13 @@ class RaisingAdapter:
         raise self._exc
 
 
+def _auth_headers(user_id: UUID | None = None) -> dict[str, str]:
+    token = create_access_token(
+        user_id=user_id or UUID("00000000-0000-0000-0000-000000000001")
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
 def _patch_extraction(mocker: MockerFixture) -> None:
     mocker.patch(
         "app.services.resume_service._extract_text_from_pdf",
@@ -101,19 +109,22 @@ async def test_mocked_adapter_returns_resume_analysis_read_shape(
     )
     db_session_mock.refresh.side_effect = _assign_persisted_fields
 
+    owner_id = UUID("00000000-0000-0000-0000-000000000001")
     service = ResumeService(db_session=db_session_mock)
     result = await service.analyze_resume(
         file_bytes=b"%PDF-fake",
         file_name="cv.pdf",
         content_type="application/pdf",
         target_role="Backend Engineer",
+        user_id=owner_id,
     )
 
     assert isinstance(result, ResumeAnalysisRead)
     assert set(result.model_dump().keys()) == RESUME_READ_FIELDS
     assert result.overall_score == VALID_ANALYSIS["overall_score"]
     assert result.grade == VALID_ANALYSIS["grade"]
-    db_session_mock.add.assert_called_once()
+    persisted = db_session_mock.add.call_args[0][0]
+    assert persisted.user_id == owner_id
     db_session_mock.commit.assert_awaited()
 
 
@@ -131,6 +142,7 @@ def test_missing_weights_return_model_unavailable(mocker: MockerFixture) -> None
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
             data={"target_role": "Backend Engineer"},
+            headers=_auth_headers(),
         )
 
     assert response.status_code == 503
@@ -156,6 +168,7 @@ def test_adapter_exception_is_mapped_without_leaking_details(
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
             data={"target_role": "Backend Engineer"},
+            headers=_auth_headers(),
         )
 
     assert response.status_code == 503
@@ -184,6 +197,7 @@ async def test_invalid_json_does_not_persist(
             file_name="cv.pdf",
             content_type="application/pdf",
             target_role="Backend Engineer",
+            user_id=UUID("00000000-0000-0000-0000-000000000001"),
         )
 
     assert exc.value.code == "analysis_failed"

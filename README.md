@@ -8,12 +8,14 @@ FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and P
 
 CareerOS helps a user upload a resume, choose a target role, and receive a validated analysis payload from a local model. Profiles and analysis rows are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
 
-Analyze currently does **not** require a JWT (Slice 2). If `LOCAL_MODEL_PATH` is unset or the weight file is missing, `POST /api/v1/resume/analyze` returns HTTP 503 `model_unavailable` and does not call a hosted provider.
+`POST /api/v1/resume/analyze`, `GET /api/v1/resume/analyses`, and `GET /api/v1/resume/analyses/{id}` require a Bearer JWT. Analyses are stored under the token subject. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
+
+If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze returns HTTP 503 `model_unavailable` and does not call a hosted provider.
 
 ## Architecture
 
 ```text
-React frontend  →  FastAPI (JWT for profiles)  →  PostgreSQL
+React frontend  →  FastAPI (JWT)  →  PostgreSQL
                          │
                          ├─ resume parse (PDF/DOCX)
                          └─ local GGUF adapter → ResumeAnalysisResult (Pydantic)
@@ -38,7 +40,8 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 - User registration / login with JWT
 - User profile CRUD (write paths)
-- Resume upload → text extraction → local-model analysis → persisted `resume_analyses`
+- Resume upload → text extraction → local-model analysis → persisted `resume_analyses` owned by the authenticated user
+- User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
 - Health endpoint and CORS configuration for split frontend/backend deploy
 - Alembic migrations for users, profiles, resume analyses
 - Unit / integration tests for auth and profile flows
@@ -90,7 +93,7 @@ CI and default `pytest` mock the local adapter and must not download weights.
 
 ## Future improvements
 
-- JWT and user ownership on resume analysis and history
+- JD-driven scoring and evidence-grounded resume edits
 - Flesh out roadmap / career-planning endpoints
 - Tighten production observability and rate limits
 - Clearer separation docs vs Range-Apply product surface

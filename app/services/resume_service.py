@@ -3,16 +3,18 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
+from uuid import UUID
 
 from docx import Document as DocxDocument
 from PyPDF2 import PdfReader
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
 from app.ai.resume_analyzer import analyze_resume_text
 from app.core.errors import DomainError
 from app.models.resume_analysis import ResumeAnalysis
-from app.schemas.resume_analysis import ResumeAnalysisRead
+from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,10 @@ class ResumeInferenceFailedError(DomainError):
     """Raised when local inference fails after the weight file was found."""
 
 
+class ResumeAnalysisNotFoundError(DomainError):
+    """Raised when an analysis is missing or not owned by the caller."""
+
+
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
     """Extract plain text from a PDF file's bytes."""
     reader = PdfReader(io.BytesIO(file_bytes))
@@ -79,17 +85,13 @@ class ResumeService:
         file_name: str,
         content_type: str,
         target_role: str,
+        user_id: UUID,
     ) -> ResumeAnalysisRead:
         """
         Parse an uploaded resume file, analyze it with the local model adapter,
-        validate the response, persist the result, and return it.
+        validate the response, persist the result under user_id, and return it.
 
-        Steps:
-          1. Validate file size and content type.
-          2. Extract raw text from PDF or DOCX.
-          3. Call the local inference adapter via app.ai.resume_analyzer.
-          4. Store the analysis in the database.
-          5. Return the validated result.
+        Ownership is taken from the authenticated user id, never from the request body.
 
         Raises:
             ResumeFileTooLargeError: File exceeds 5 MB.
@@ -162,6 +164,7 @@ class ResumeService:
         result_dict: dict[str, Any] = analysis_result.model_dump()
 
         record = ResumeAnalysis(
+            user_id=user_id,
             file_name=file_name,
             target_role=target_role,
             resume_text=resume_text,
@@ -178,4 +181,41 @@ class ResumeService:
         await self._db_session.commit()
         await self._db_session.refresh(record)
 
+        return ResumeAnalysisRead.model_validate(record)
+
+    async def list_analyses_for_user(self, *, user_id: UUID) -> list[ResumeAnalysisSummary]:
+        """Return the caller's analyses, newest first. Legacy unowned rows are excluded."""
+        stmt = (
+            select(ResumeAnalysis)
+            .where(ResumeAnalysis.user_id == user_id)
+            .order_by(ResumeAnalysis.created_at.desc())
+            .limit(100)
+        )
+        result = await self._db_session.execute(stmt)
+        rows = result.scalars().all()
+        return [ResumeAnalysisSummary.model_validate(row) for row in rows]
+
+    async def get_analysis_for_user(
+        self,
+        *,
+        user_id: UUID,
+        analysis_id: UUID,
+    ) -> ResumeAnalysisRead:
+        """
+        Return one owned analysis.
+
+        Missing rows and another user's rows both raise the same not_found error.
+        """
+        stmt = select(ResumeAnalysis).where(
+            ResumeAnalysis.id == analysis_id,
+            ResumeAnalysis.user_id == user_id,
+        )
+        result = await self._db_session.execute(stmt)
+        record = result.scalar_one_or_none()
+        if record is None:
+            raise ResumeAnalysisNotFoundError(
+                detail="Analysis not found",
+                code="not_found",
+                http_status=404,
+            )
         return ResumeAnalysisRead.model_validate(record)
