@@ -18,13 +18,27 @@ from app.ai.local_inference import (
     build_local_adapter,
     require_local_model_file,
 )
-from app.services.resume_service import ResumeAnalysisFailedError, ResumeService
+from app.services.resume_service import (
+    ResumeAnalysisFailedError,
+    ResumeJobDescriptionError,
+    ResumeService,
+)
 from app.core.auth import create_access_token
 from app.core.config import settings
 from app.main import app
 from app.schemas.resume_analysis import ResumeAnalysisRead
+from app.services.evidence_matcher import match_requirements
+from app.services.jd_extraction import extract_requirements
+from app.services.scoring import RUBRIC_VERSION, score_application
 
-VALID_ANALYSIS: dict[str, Any] = {
+SAMPLE_JD = (
+    "Required: Python\n"
+    "Required: FastAPI\n"
+    "Preferred: Kubernetes\n"
+)
+SAMPLE_RESUME = "Python engineer with FastAPI experience at Acme."
+VALID_EXTRACTION: dict[str, Any] = {"requirements": [], "estimated_level": "mid"}
+INVENTED_SCORES: dict[str, Any] = {
     "overall_score": 72,
     "grade": "B",
     "ats_score": 65,
@@ -32,15 +46,7 @@ VALID_ANALYSIS: dict[str, Any] = {
     "top_strengths": ["Python", "FastAPI", "SQLAlchemy"],
     "critical_weaknesses": ["No metrics", "Missing keywords", "Weak summary"],
     "keywords_missing": ["Kubernetes"],
-    "sections": [
-        {
-            "name": "Work Experience",
-            "score": 70,
-            "status": "needs_improvement",
-            "feedback": "Add measurable outcomes.",
-            "suggestions": ["Quantify impact"],
-        }
-    ],
+    "sections": [],
 }
 
 RESUME_READ_FIELDS = {
@@ -57,6 +63,15 @@ RESUME_READ_FIELDS = {
     "keywords_missing",
     "sections",
     "created_at",
+    "job_description",
+    "job_fit_score",
+    "resume_alignment_score",
+    "application_readiness_score",
+    "rubric_version",
+    "requirement_matches",
+    "eligibility",
+    "blocked_by_requirement",
+    "completeness_included",
 }
 
 
@@ -83,10 +98,14 @@ def _auth_headers(user_id: UUID | None = None) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _analyze_form() -> dict[str, str]:
+    return {"target_role": "Backend Engineer", "job_description": SAMPLE_JD}
+
+
 def _patch_extraction(mocker: MockerFixture) -> None:
     mocker.patch(
         "app.services.resume_service._extract_text_from_pdf",
-        return_value="Python engineer with FastAPI experience at Acme.",
+        return_value=SAMPLE_RESUME,
     )
 
 
@@ -96,18 +115,28 @@ async def _assign_persisted_fields(record: object) -> None:
     record.created_at = datetime.now(timezone.utc)  # type: ignore[attr-defined]
 
 
+def _expected_scores() -> Any:
+    matches = match_requirements(extract_requirements(SAMPLE_JD), SAMPLE_RESUME)
+    return score_application(
+        matches=matches,
+        resume_text=SAMPLE_RESUME,
+        estimated_level_hint="mid",
+    )
+
+
 @pytest.mark.asyncio
 async def test_mocked_adapter_returns_resume_analysis_read_shape(
     db_session_mock: AsyncSession,
     mocker: MockerFixture,
 ) -> None:
-    """A mocked local completion persists and returns the existing ResumeAnalysisRead contract."""
+    """A mocked local completion persists rubric scores and the ResumeAnalysisRead contract."""
     _patch_extraction(mocker)
     mocker.patch(
         "app.ai.resume_analyzer.build_local_adapter",
-        return_value=FakeAdapter(json.dumps(VALID_ANALYSIS)),
+        return_value=FakeAdapter(json.dumps(VALID_EXTRACTION)),
     )
     db_session_mock.refresh.side_effect = _assign_persisted_fields
+    expected = _expected_scores()
 
     owner_id = UUID("00000000-0000-0000-0000-000000000001")
     service = ResumeService(db_session=db_session_mock)
@@ -116,15 +145,22 @@ async def test_mocked_adapter_returns_resume_analysis_read_shape(
         file_name="cv.pdf",
         content_type="application/pdf",
         target_role="Backend Engineer",
+        job_description=SAMPLE_JD,
         user_id=owner_id,
     )
 
     assert isinstance(result, ResumeAnalysisRead)
     assert set(result.model_dump().keys()) == RESUME_READ_FIELDS
-    assert result.overall_score == VALID_ANALYSIS["overall_score"]
-    assert result.grade == VALID_ANALYSIS["grade"]
+    assert result.overall_score == expected.application_readiness_score
+    assert result.overall_score != INVENTED_SCORES["overall_score"]
+    assert result.job_fit_score == expected.job_fit_score
+    assert result.resume_alignment_score == expected.resume_alignment_score
+    assert result.application_readiness_score == expected.application_readiness_score
+    assert result.grade == expected.grade
+    assert result.rubric_version == RUBRIC_VERSION
     persisted = db_session_mock.add.call_args[0][0]
     assert persisted.user_id == owner_id
+    assert persisted.overall_score == persisted.application_readiness_score
     db_session_mock.commit.assert_awaited()
 
 
@@ -141,7 +177,7 @@ def test_missing_weights_return_model_unavailable(mocker: MockerFixture) -> None
         response = client.post(
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
-            data={"target_role": "Backend Engineer"},
+            data=_analyze_form(),
             headers=_auth_headers(),
         )
 
@@ -167,7 +203,7 @@ def test_adapter_exception_is_mapped_without_leaking_details(
         response = client.post(
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
-            data={"target_role": "Backend Engineer"},
+            data=_analyze_form(),
             headers=_auth_headers(),
         )
 
@@ -197,12 +233,83 @@ async def test_invalid_json_does_not_persist(
             file_name="cv.pdf",
             content_type="application/pdf",
             target_role="Backend Engineer",
+            job_description=SAMPLE_JD,
             user_id=UUID("00000000-0000-0000-0000-000000000001"),
         )
 
     assert exc.value.code == "analysis_failed"
     db_session_mock.add.assert_not_called()
     db_session_mock.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_model_numeric_scores_are_rejected_and_not_persisted(
+    db_session_mock: AsyncSession,
+    mocker: MockerFixture,
+) -> None:
+    """JSON that includes invented scores fails extraction validation and is not stored."""
+    _patch_extraction(mocker)
+    mocker.patch(
+        "app.ai.resume_analyzer.build_local_adapter",
+        return_value=FakeAdapter(json.dumps(INVENTED_SCORES)),
+    )
+
+    service = ResumeService(db_session=db_session_mock)
+    with pytest.raises(ResumeAnalysisFailedError) as exc:
+        await service.analyze_resume(
+            file_bytes=b"%PDF-fake",
+            file_name="cv.pdf",
+            content_type="application/pdf",
+            target_role="Backend Engineer",
+            job_description=SAMPLE_JD,
+            user_id=UUID("00000000-0000-0000-0000-000000000001"),
+        )
+
+    assert exc.value.code == "analysis_failed"
+    db_session_mock.add.assert_not_called()
+    db_session_mock.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_whitespace_job_description_is_rejected(
+    db_session_mock: AsyncSession,
+    mocker: MockerFixture,
+) -> None:
+    """Whitespace-only JDs never reach inference or persistence."""
+    _patch_extraction(mocker)
+    adapter = mocker.patch("app.ai.resume_analyzer.build_local_adapter")
+    service = ResumeService(db_session=db_session_mock)
+
+    with pytest.raises(ResumeJobDescriptionError) as exc:
+        await service.analyze_resume(
+            file_bytes=b"%PDF-fake",
+            file_name="cv.pdf",
+            content_type="application/pdf",
+            target_role="Backend Engineer",
+            job_description="   \n",
+            user_id=UUID("00000000-0000-0000-0000-000000000001"),
+        )
+
+    assert exc.value.code == "job_description_required"
+    adapter.assert_not_called()
+    db_session_mock.add.assert_not_called()
+
+
+def test_missing_job_description_returns_422(mocker: MockerFixture) -> None:
+    """The analyze route requires a job_description form field."""
+    mocker.patch(
+        "app.services.resume_service._extract_text_from_pdf",
+        return_value=SAMPLE_RESUME,
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/resume/analyze",
+            files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
+            data={"target_role": "Backend Engineer"},
+            headers=_auth_headers(),
+        )
+
+    assert response.status_code == 422
 
 
 def test_require_local_model_file_rejects_urls() -> None:

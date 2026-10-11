@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import Any
 from uuid import UUID
 
 from docx import Document as DocxDocument
@@ -11,14 +10,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
-from app.ai.resume_analyzer import analyze_resume_text
+from app.ai.resume_analyzer import extract_requirements_with_model
 from app.core.errors import DomainError
 from app.models.resume_analysis import ResumeAnalysis
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
+from app.services.evidence_matcher import match_requirements
+from app.services.jd_extraction import derive_target_role, extract_requirements, merge_requirements
+from app.services.scoring import score_application
 
 logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
+MAX_JOB_DESCRIPTION_CHARS: int = 20_000
 ALLOWED_CONTENT_TYPES: dict[str, str] = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
@@ -53,6 +56,10 @@ class ResumeAnalysisNotFoundError(DomainError):
     """Raised when an analysis is missing or not owned by the caller."""
 
 
+class ResumeJobDescriptionError(DomainError):
+    """Raised when the job description is missing, empty, or too long."""
+
+
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
     """Extract plain text from a PDF file's bytes."""
     reader = PdfReader(io.BytesIO(file_bytes))
@@ -85,18 +92,20 @@ class ResumeService:
         file_name: str,
         content_type: str,
         target_role: str,
+        job_description: str,
         user_id: UUID,
     ) -> ResumeAnalysisRead:
         """
-        Parse an uploaded resume file, analyze it with the local model adapter,
-        validate the response, persist the result under user_id, and return it.
+        Parse a resume, extract JD requirements, match evidence, and persist rubric scores.
 
-        Ownership is taken from the authenticated user id, never from the request body.
+        The local model may add structured requirements. Numeric scores always come from
+        the versioned rubric. Ownership is taken from the authenticated user id.
 
         Raises:
             ResumeFileTooLargeError: File exceeds 5 MB.
             ResumeUnsupportedTypeError: File is not PDF or DOCX.
             ResumeExtractionError: Text extraction failed.
+            ResumeJobDescriptionError: Job description is empty or too long.
             ResumeModelUnavailableError: Local weights are missing.
             ResumeInferenceFailedError: Local generation failed.
             ResumeAnalysisFailedError: Model returned invalid JSON after retries.
@@ -114,6 +123,20 @@ class ResumeService:
                 detail=f"Unsupported file type: {content_type}. Only PDF and DOCX are accepted.",
                 code="unsupported_media_type",
                 http_status=415,
+            )
+
+        cleaned_jd = job_description.strip()
+        if not cleaned_jd:
+            raise ResumeJobDescriptionError(
+                detail="A job description is required",
+                code="job_description_required",
+                http_status=422,
+            )
+        if len(cleaned_jd) > MAX_JOB_DESCRIPTION_CHARS:
+            raise ResumeJobDescriptionError(
+                detail=f"Job description exceeds {MAX_JOB_DESCRIPTION_CHARS} characters",
+                code="job_description_too_long",
+                http_status=422,
             )
 
         try:
@@ -135,10 +158,17 @@ class ResumeService:
                 http_status=422,
             )
 
+        stored_role = derive_target_role(
+            target_role=target_role,
+            job_description=cleaned_jd,
+        )
+        deterministic = extract_requirements(cleaned_jd)
+
         try:
-            analysis_result = await analyze_resume_text(
+            modeled = await extract_requirements_with_model(
                 resume_text=resume_text,
-                target_role=target_role,
+                target_role=stored_role,
+                job_description=cleaned_jd,
             )
         except LocalModelNotFoundError as exc:
             logger.exception("Local model weights are not available")
@@ -161,21 +191,39 @@ class ResumeService:
                 http_status=422,
             ) from exc
 
-        result_dict: dict[str, Any] = analysis_result.model_dump()
+        merged = merge_requirements(
+            deterministic=deterministic,
+            modeled=modeled.requirements,
+        )
+        matches = match_requirements(merged, resume_text)
+        scored = score_application(
+            matches=matches,
+            resume_text=resume_text,
+            estimated_level_hint=modeled.estimated_level,
+        )
 
         record = ResumeAnalysis(
             user_id=user_id,
             file_name=file_name,
-            target_role=target_role,
+            target_role=stored_role,
             resume_text=resume_text,
-            overall_score=result_dict["overall_score"],
-            grade=result_dict["grade"],
-            ats_score=result_dict["ats_score"],
-            estimated_level=result_dict["estimated_level"],
-            top_strengths=result_dict["top_strengths"],
-            critical_weaknesses=result_dict["critical_weaknesses"],
-            keywords_missing=result_dict["keywords_missing"],
-            sections=result_dict["sections"],
+            overall_score=scored.application_readiness_score,
+            grade=scored.grade,
+            ats_score=scored.ats_score,
+            estimated_level=scored.estimated_level,
+            top_strengths=scored.top_strengths,
+            critical_weaknesses=scored.critical_weaknesses,
+            keywords_missing=scored.keywords_missing,
+            sections=scored.sections,
+            job_description=cleaned_jd,
+            job_fit_score=scored.job_fit_score,
+            resume_alignment_score=scored.resume_alignment_score,
+            application_readiness_score=scored.application_readiness_score,
+            rubric_version=scored.rubric_version,
+            requirement_matches=[item.model_dump() for item in scored.requirement_matches],
+            eligibility=[item.model_dump() for item in scored.eligibility],
+            blocked_by_requirement=scored.blocked_by_requirement,
+            completeness_included=scored.completeness_included,
         )
         self._db_session.add(record)
         await self._db_session.commit()

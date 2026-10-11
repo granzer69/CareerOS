@@ -30,13 +30,15 @@ async def get_resume_service(
     status_code=status.HTTP_200_OK,
     summary="Analyze a resume file",
     description=(
-        "Upload a PDF or DOCX resume (max 5 MB) along with a target role. "
-        "Requires a Bearer JWT. The analysis is stored under the authenticated user."
+        "Upload a PDF or DOCX resume (max 5 MB) with a target role and job description. "
+        "Requires a Bearer JWT. Scores come from a versioned rubric, not the local model. "
+        "The analysis is stored under the authenticated user."
     ),
 )
 async def analyze_resume(
     file: UploadFile,
     target_role: Annotated[str, Form(min_length=1, max_length=200)],
+    job_description: Annotated[str, Form(min_length=1, max_length=20000)],
     service: Annotated[ResumeService, Depends(get_resume_service)],
     current_user_id: Annotated[UUID, Depends(get_current_user_id)],
 ) -> ResumeAnalysisRead:
@@ -47,6 +49,7 @@ async def analyze_resume(
             file_name=file.filename or "unknown",
             content_type=file.content_type or "",
             target_role=target_role,
+            job_description=job_description,
             user_id=current_user_id,
         )
     except DomainError as exc:

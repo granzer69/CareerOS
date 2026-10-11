@@ -11,21 +11,30 @@ from app.ai.local_inference import (
     LocalModelNotFoundError,
     build_local_adapter,
 )
-from app.schemas.resume_analysis import ResumeAnalysisResult
+from app.schemas.evidence import ModelExtraction
 
-_PROMPT_PATH = Path(__file__).parent / "prompts" / "resume_analysis.txt"
+_PROMPT_PATH = Path(__file__).parent / "prompts" / "jd_extraction.txt"
 _MAX_RETRIES = 2
 
 
 def _load_prompt_template() -> str:
-    """Load the resume analysis prompt template from disk."""
+    """Load the JD extraction prompt template from disk."""
     return _PROMPT_PATH.read_text(encoding="utf-8")
 
 
-def _build_prompt(*, target_role: str, resume_text: str) -> str:
-    """Build the final prompt by interpolating role and resume text into the template."""
+def _escape_braces(value: str) -> str:
+    """Keep user text from being interpreted as str.format placeholders."""
+    return value.replace("{", "{{").replace("}", "}}")
+
+
+def _build_prompt(*, target_role: str, job_description: str, resume_text: str) -> str:
+    """Build the extraction prompt from the saved template."""
     template = _load_prompt_template()
-    return template.format(target_role=target_role, resume_text=resume_text)
+    return template.format(
+        target_role=_escape_braces(target_role),
+        job_description=_escape_braces(job_description),
+        resume_text=_escape_braces(resume_text),
+    )
 
 
 def _strip_markdown_fences(raw_text: str) -> str:
@@ -37,27 +46,25 @@ def _strip_markdown_fences(raw_text: str) -> str:
     return "\n".join(lines).strip()
 
 
-async def analyze_resume_text(
+async def extract_requirements_with_model(
     *,
     resume_text: str,
     target_role: str,
+    job_description: str,
     adapter: LocalInferenceAdapter | None = None,
-) -> ResumeAnalysisResult:
+) -> ModelExtraction:
     """
-    Analyze resume text with the local inference adapter and validate JSON output.
+    Ask the local model for structured JD requirements. Scores are rejected by schema.
 
-    Builds a prompt from the saved template, calls the local adapter, parses the
-    returned JSON, and validates it against ResumeAnalysisResult. Malformed JSON
-    is retried once (two attempts total). Missing weights and inference failures
-    are not retried and never fall back to a hosted provider.
-
-    Raises:
-        LocalModelNotFoundError: Local weight file is missing.
-        LocalInferenceError: Local generation failed.
-        ValueError: Model output was not valid analysis JSON after retries.
+    Malformed JSON is retried once. Missing weights and inference failures are not
+    retried and never fall back to a hosted provider.
     """
     inference = adapter if adapter is not None else build_local_adapter()
-    prompt = _build_prompt(target_role=target_role, resume_text=resume_text)
+    prompt = _build_prompt(
+        target_role=target_role,
+        job_description=job_description,
+        resume_text=resume_text,
+    )
     last_error: Exception | None = None
 
     for _attempt in range(_MAX_RETRIES):
@@ -72,11 +79,11 @@ async def analyze_resume_text(
 
         try:
             parsed = json.loads(raw_text)
-            return ResumeAnalysisResult.model_validate(parsed)
+            return ModelExtraction.model_validate(parsed)
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc
             continue
 
     raise ValueError(
-        f"Model output was not valid analysis JSON after {_MAX_RETRIES} attempts: {last_error}"
+        f"Model output was not valid extraction JSON after {_MAX_RETRIES} attempts: {last_error}"
     )

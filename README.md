@@ -6,9 +6,9 @@ FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and P
 
 ## Overview
 
-CareerOS helps a user upload a resume, choose a target role, and receive a validated analysis payload from a local model. Profiles and analysis rows are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
+CareerOS helps a user upload a resume, paste a job description, and receive three versioned scores: **job-fit**, **resume-alignment**, and **application-readiness**. A local GGUF model may extract extra JD requirements; it does not invent the final numbers. Profiles and analysis rows are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
 
-`POST /api/v1/resume/analyze`, `GET /api/v1/resume/analyses`, and `GET /api/v1/resume/analyses/{id}` require a Bearer JWT. Analyses are stored under the token subject. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
+`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. `GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}` are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
 
 If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze returns HTTP 503 `model_unavailable` and does not call a hosted provider.
 
@@ -18,7 +18,8 @@ If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze returns HT
 React frontend  →  FastAPI (JWT)  →  PostgreSQL
                          │
                          ├─ resume parse (PDF/DOCX)
-                         └─ local GGUF adapter → ResumeAnalysisResult (Pydantic)
+                         ├─ deterministic JD split + evidence match + rubric v1.0.0
+                         └─ local GGUF adapter → ModelExtraction (no scores)
 ```
 
 ## Tech stack
@@ -40,7 +41,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 - User registration / login with JWT
 - User profile CRUD (write paths)
-- Resume upload → text extraction → local-model analysis → persisted `resume_analyses` owned by the authenticated user
+- Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match and rubric scoring → persisted `resume_analyses` owned by the authenticated user
 - User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
 - Health endpoint and CORS configuration for split frontend/backend deploy
 - Alembic migrations for users, profiles, resume analyses
@@ -56,8 +57,9 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 - **Local inference only**: no Anthropic/OpenAI/Gemini keys or cloud fallback in the runtime
 - **Missing weights fail closed**: analyze returns 503; `/health` and auth keep running
-- **Structured model output**: response is parsed as JSON and validated with Pydantic; malformed JSON triggers a bounded retry
-- **Prompt as file**: analysis prompt kept under `app/ai/prompts/` for inspectability
+- **Structured model output**: extraction JSON is validated with Pydantic (`extra=forbid`); numeric scores are rejected; malformed JSON triggers a bounded retry
+- **Deterministic scoring**: job-fit, alignment, and readiness come from rubric `v1.0.0`; `overall_score` is application-readiness; `ats_score` is terminology coverage, not a vendor ATS
+- **Prompt as file**: extraction prompt kept under `app/ai/prompts/` for inspectability
 - **Migrations first**: schema changes via Alembic rather than ad-hoc create-all in production paths
 - **Split deploy**: API on Render, frontend on Vercel, with explicit `ALLOWED_ORIGINS` / `BACKEND_URL`
 
@@ -93,7 +95,7 @@ CI and default `pytest` mock the local adapter and must not download weights.
 
 ## Future improvements
 
-- JD-driven scoring and evidence-grounded resume edits
+- Evidence-grounded resume edits
 - Flesh out roadmap / career-planning endpoints
 - Tighten production observability and rate limits
 - Clearer separation docs vs Range-Apply product surface

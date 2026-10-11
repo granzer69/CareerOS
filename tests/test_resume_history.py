@@ -22,6 +22,12 @@ OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 OTHER_ID = UUID("00000000-0000-0000-0000-000000000002")
 ANALYSIS_ID = UUID("00000000-0000-0000-0000-0000000000aa")
 
+SAMPLE_JD = (
+    "Required: Python\n"
+    "Required: FastAPI\n"
+    "Preferred: Kubernetes\n"
+)
+VALID_EXTRACTION = {"requirements": [], "estimated_level": "mid"}
 VALID_ANALYSIS = {
     "overall_score": 72,
     "grade": "B",
@@ -44,7 +50,7 @@ VALID_ANALYSIS = {
 
 class FakeAdapter:
     async def complete(self, prompt: str) -> str:
-        return json.dumps(VALID_ANALYSIS)
+        return json.dumps(VALID_EXTRACTION)
 
 
 def _auth_headers(user_id: UUID) -> dict[str, str]:
@@ -67,6 +73,15 @@ def _analysis_row(*, user_id: UUID | None, analysis_id: UUID = ANALYSIS_ID) -> S
         critical_weaknesses=VALID_ANALYSIS["critical_weaknesses"],
         keywords_missing=VALID_ANALYSIS["keywords_missing"],
         sections=VALID_ANALYSIS["sections"],
+        job_description=None,
+        job_fit_score=None,
+        resume_alignment_score=None,
+        application_readiness_score=None,
+        rubric_version=None,
+        requirement_matches=[],
+        eligibility=[],
+        blocked_by_requirement=False,
+        completeness_included=False,
         created_at=datetime.now(timezone.utc),
     )
 
@@ -122,7 +137,11 @@ def test_analyze_with_real_jwt_persists_token_subject(
             response = client.post(
                 "/api/v1/resume/analyze",
                 files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
-                data={"target_role": "Backend Engineer", "user_id": str(OTHER_ID)},
+                data={
+                "target_role": "Backend Engineer",
+                "job_description": SAMPLE_JD,
+                "user_id": str(OTHER_ID),
+            },
                 headers=_auth_headers(OWNER_ID),
             )
     finally:
@@ -140,7 +159,7 @@ def test_analyze_without_token_returns_401() -> None:
         response = client.post(
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
-            data={"target_role": "Backend Engineer"},
+            data={"target_role": "Backend Engineer", "job_description": SAMPLE_JD},
         )
 
     assert response.status_code == 401
@@ -186,7 +205,11 @@ def test_analyze_persists_token_subject_not_client_user_id(
     response = resume_client.post(
         "/resume/analyze",
         files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
-        data={"target_role": "Backend Engineer", "user_id": str(other_user_id)},
+        data={
+            "target_role": "Backend Engineer",
+            "job_description": SAMPLE_JD,
+            "user_id": str(other_user_id),
+        },
     )
 
     assert response.status_code == 200
@@ -209,6 +232,15 @@ def test_analyze_persists_token_subject_not_client_user_id(
         "keywords_missing",
         "sections",
         "created_at",
+        "job_description",
+        "job_fit_score",
+        "resume_alignment_score",
+        "application_readiness_score",
+        "rubric_version",
+        "requirement_matches",
+        "eligibility",
+        "blocked_by_requirement",
+        "completeness_included",
     }
 
 
