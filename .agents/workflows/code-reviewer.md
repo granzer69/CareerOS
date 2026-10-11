@@ -19,7 +19,8 @@ Check every piece of code for the following:
 - Edge cases that will crash: null values, empty lists, missing dict keys
 - Database transactions handled correctly (commits, rollbacks on error)
 - Async/await used correctly — no blocking calls inside async functions
-- Claude API calls wrapped in try/except with proper error propagation
+- Local inference calls wrapped in try/except with proper error propagation
+- No hosted LLM SDK or provider-key usage in runtime code
 
 ### ARCHITECTURE
 - Business logic leaking into route handlers

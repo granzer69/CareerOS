@@ -29,7 +29,7 @@ async def get_resume_service(
     summary="Analyze a resume file",
     description=(
         "Upload a PDF or DOCX resume (max 5 MB) along with a target role. "
-        "The system extracts the text, sends it to Claude for analysis, and "
+        "The system extracts the text, analyzes it with a local model, and "
         "returns a structured score with detailed section-level feedback."
     ),
 )

@@ -21,6 +21,10 @@ frontend/build/
 frontend/.env
 frontend/.env.*
 
+# Local model weights (never commit GGUF files)
+*.gguf
+models/
+
 # Test artifacts
 test_output.txt
 .pytest_cache/

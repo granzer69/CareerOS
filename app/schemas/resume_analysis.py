@@ -27,7 +27,7 @@ class ResumeSectionSchema(BaseModel):
 
 
 class ResumeAnalysisResult(BaseModel):
-    """Schema matching the exact JSON structure Claude must return."""
+    """Schema matching the exact JSON structure the local model must return."""
 
     overall_score: int = Field(..., ge=0, le=100)
     grade: Literal["A", "B", "C", "D", "F"] = Field(...)

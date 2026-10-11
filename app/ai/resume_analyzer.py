@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import anthropic
 from pydantic import ValidationError
 
-from app.core.config import settings
+from app.ai.local_inference import (
+    LocalInferenceAdapter,
+    LocalInferenceError,
+    LocalModelNotFoundError,
+    build_local_adapter,
+)
 from app.schemas.resume_analysis import ResumeAnalysisResult
 
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "resume_analysis.txt"
@@ -24,46 +28,47 @@ def _build_prompt(*, target_role: str, resume_text: str) -> str:
     return template.format(target_role=target_role, resume_text=resume_text)
 
 
-async def analyze_resume_with_claude(
+def _strip_markdown_fences(raw_text: str) -> str:
+    """Remove optional markdown code fences around model JSON."""
+    stripped = raw_text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    lines = [ln for ln in stripped.splitlines() if not ln.strip().startswith("```")]
+    return "\n".join(lines).strip()
+
+
+async def analyze_resume_text(
     *,
     resume_text: str,
     target_role: str,
+    adapter: LocalInferenceAdapter | None = None,
 ) -> ResumeAnalysisResult:
     """
-    Send extracted resume text to Claude for analysis and return validated results.
+    Analyze resume text with the local inference adapter and validate JSON output.
 
-    Builds a prompt from the saved template, calls the Claude API, parses the
-    returned JSON, and validates it against ResumeAnalysisResult.  If Claude
-    returns malformed JSON the call is retried once (total of 2 attempts).
+    Builds a prompt from the saved template, calls the local adapter, parses the
+    returned JSON, and validates it against ResumeAnalysisResult. Malformed JSON
+    is retried once (two attempts total). Missing weights and inference failures
+    are not retried and never fall back to a hosted provider.
 
     Raises:
-        ValueError: If Claude returns invalid JSON after all retry attempts.
-        anthropic.APIError: If the Claude API itself returns an error.
+        LocalModelNotFoundError: Local weight file is missing.
+        LocalInferenceError: Local generation failed.
+        ValueError: Model output was not valid analysis JSON after retries.
     """
-    api_key = settings.ANTHROPIC_API_KEY
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not set in environment / .env")
-
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    inference = adapter if adapter is not None else build_local_adapter()
     prompt = _build_prompt(target_role=target_role, resume_text=resume_text)
-
     last_error: Exception | None = None
 
-    for attempt in range(_MAX_RETRIES):
-        message = await client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    for _attempt in range(_MAX_RETRIES):
+        try:
+            raw_text = await inference.complete(prompt)
+        except (LocalModelNotFoundError, LocalInferenceError):
+            raise
+        except Exception as exc:
+            raise LocalInferenceError("Local inference failed") from exc
 
-        raw_text = message.content[0].text.strip()
-
-        # Strip markdown fences if Claude wraps the JSON
-        if raw_text.startswith("```"):
-            lines = raw_text.splitlines()
-            # Remove first and last fence lines
-            lines = [ln for ln in lines if not ln.strip().startswith("```")]
-            raw_text = "\n".join(lines).strip()
+        raw_text = _strip_markdown_fences(raw_text)
 
         try:
             parsed = json.loads(raw_text)
@@ -73,5 +78,5 @@ async def analyze_resume_with_claude(
             continue
 
     raise ValueError(
-        f"Claude returned malformed JSON after {_MAX_RETRIES} attempts: {last_error}"
+        f"Model output was not valid analysis JSON after {_MAX_RETRIES} attempts: {last_error}"
     )

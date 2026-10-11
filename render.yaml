@@ -27,7 +27,7 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
-      - key: ANTHROPIC_API_KEY
+      - key: LOCAL_MODEL_PATH
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false

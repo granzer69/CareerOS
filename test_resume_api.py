@@ -102,7 +102,7 @@ def run_analyze(resume_path: str):
         print(f"\n[->] POST {url}")
         print(f"    file: sample_resume.docx")
         print(f"    target_role: Senior AI/ML Engineer")
-        print(f"    Waiting for Claude analysis (this may take 10-30 seconds)...\n")
+        print(f"    Waiting for local model analysis (this may take 10-30 seconds)...\n")
 
         resp = httpx.post(url, files=files, data=data, timeout=120.0)
 
