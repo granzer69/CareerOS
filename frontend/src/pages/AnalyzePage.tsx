@@ -1,6 +1,9 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getToken, request } from "../api";
+import { isSessionExpiredError } from "../authRedirect";
+import { Banner } from "../components/Banner";
+import { HONESTY_COPY } from "../copy";
 import type { ResumeAnalysisRead } from "../types";
 
 export function AnalyzePage() {
@@ -30,6 +33,10 @@ export function AnalyzePage() {
       });
       navigate(`/analyses/${analysis.id}`);
     } catch (err) {
+      if (isSessionExpiredError(err)) {
+        navigate("/login", { replace: true });
+        return;
+      }
       setError(err instanceof Error ? err.message : "Analysis failed");
     } finally {
       setPending(false);
@@ -39,34 +46,32 @@ export function AnalyzePage() {
   return (
     <div className="card">
       <h1>Analyze a resume against a JD</h1>
-      <p className="muted">
-        Scores are rubric v1.0.0: job-fit, resume-alignment, and application-readiness. They are
-        not a probability of being hired or interviewed, and `ats_score` is terminology coverage —
-        not a vendor ATS result.
-      </p>
-      {error ? <div className="banner error">{error}</div> : null}
-      <form className="grid" onSubmit={onSubmit}>
-        <label>
+      <p className="muted">{HONESTY_COPY.analyzeDisclaimer}</p>
+      {error ? <Banner tone="error">{error}</Banner> : null}
+      <form className="grid" onSubmit={onSubmit} aria-busy={pending}>
+        <label htmlFor="resume-file">
           Resume (PDF or DOCX, max 5 MB)
           <input
+            id="resume-file"
             type="file"
             accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            required
           />
         </label>
-        <label>
+        <label htmlFor="target-role">
           Target role
           <input
+            id="target-role"
             value={targetRole}
             onChange={(event) => setTargetRole(event.target.value)}
             maxLength={200}
             required
           />
         </label>
-        <label>
+        <label htmlFor="job-description">
           Job description
           <textarea
+            id="job-description"
             value={jobDescription}
             onChange={(event) => setJobDescription(event.target.value)}
             maxLength={20000}
@@ -74,7 +79,7 @@ export function AnalyzePage() {
             placeholder="Paste the full job description. Required skills should be explicit."
           />
         </label>
-        <button type="submit" disabled={pending || !getToken()}>
+        <button type="submit" disabled={pending || !getToken()} aria-busy={pending}>
           {pending ? "Analyzing…" : "Run analysis"}
         </button>
       </form>

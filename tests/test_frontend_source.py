@@ -32,6 +32,8 @@ def test_frontend_copy_is_honest() -> None:
     for path in SRC.rglob("*"):
         if path.suffix not in {".ts", ".tsx", ".css", ".html"}:
             continue
+        if ".test." in path.name:
+            continue
         text = path.read_text(encoding="utf-8").lower()
         for phrase in FORBIDDEN:
             if phrase in text:

@@ -19,6 +19,12 @@ npm run build
 
 That writes `frontend/dist` with relative `/api` URLs.
 
+```bash
+npm test
+npx tsc --noEmit
+npm run test:e2e   # needs the API on 127.0.0.1:8000
+```
+
 ## Vercel
 
 Set `BACKEND_URL` to the public HTTPS API (Render). `npm run build` (via `scripts/prepare-deploy.mjs`) injects `VITE_BACKEND_URL` and copies `dist` to `build`. Then `npm run verify`.
