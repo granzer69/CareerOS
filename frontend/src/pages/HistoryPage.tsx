@@ -5,7 +5,7 @@ import { isSessionExpiredError } from "../authRedirect";
 import { Banner } from "../components/Banner";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { HONESTY_COPY } from "../copy";
+import { HONESTY_COPY, STUDIO_COPY } from "../copy";
 import type { ResumeAnalysisSummary } from "../types";
 
 export function HistoryPage() {
@@ -37,13 +37,14 @@ export function HistoryPage() {
   if (rows.length === 0) {
     return (
       <EmptyState title="History" action={<Link to="/">Go to analyze</Link>}>
-        <p>No analyses yet. Run an analysis with a resume and a job description.</p>
+        <p>No analyses yet. {STUDIO_COPY.emptyHistory}</p>
       </EmptyState>
     );
   }
 
   return (
     <div className="card">
+      <p className="eyebrow">Owner-scoped history</p>
       <h1>Your analyses</h1>
       <p className="muted">{HONESTY_COPY.historyReadiness}</p>
       <table>

@@ -1,4 +1,9 @@
-import type { ResumeAnalysisRead, ResumeAnalysisSummary, ResumeEditRead } from "../types";
+import type {
+  AnalyticsRead,
+  ResumeAnalysisRead,
+  ResumeAnalysisSummary,
+  ResumeEditRead,
+} from "../types";
 
 export const analysisFixture: ResumeAnalysisRead = {
   id: "00000000-0000-0000-0000-0000000000aa",
@@ -91,4 +96,87 @@ export const unsupportedEdit: ResumeEditRead = {
   kind: "unsupported",
   proposed_text: "Led a team of 40",
   rationale: "Headcount is not attested.",
+};
+
+export const analyticsFixture: AnalyticsRead = {
+  analysis_count: 2,
+  requirement_count: 3,
+  blocked_count: 1,
+  mandatory_gap_count: 1,
+  latest_created_at: "2026-10-12T15:00:00.000Z",
+  rubric_versions: ["v1.0.0"],
+  evidence: [
+    { state: "confirmed", count: 1 },
+    { state: "partial", count: 0 },
+    { state: "not_found", count: 2 },
+    { state: "contradicted", count: 0 },
+    { state: "unknown", count: 0 },
+  ],
+  scores: [
+    {
+      id: "00000000-0000-0000-0000-0000000000bb",
+      created_at: "2026-10-10T12:00:00.000Z",
+      file_name: "cv.pdf",
+      target_role: "Data Engineer",
+      overall_score: 40,
+      job_fit_score: null,
+      resume_alignment_score: null,
+      application_readiness_score: null,
+      rubric_version: null,
+      blocked_by_requirement: false,
+    },
+    {
+      id: analysisFixture.id,
+      created_at: analysisFixture.created_at,
+      file_name: analysisFixture.file_name,
+      target_role: analysisFixture.target_role,
+      overall_score: 72,
+      job_fit_score: 70,
+      resume_alignment_score: 68,
+      application_readiness_score: 72,
+      rubric_version: "v1.0.0",
+      blocked_by_requirement: true,
+    },
+  ],
+  roles: [
+    {
+      target_role: "Backend Engineer",
+      analysis_count: 1,
+      avg_readiness: 72,
+      confirmed: 1,
+      not_found: 1,
+      contradicted: 0,
+    },
+    {
+      target_role: "Data Engineer",
+      analysis_count: 1,
+      avg_readiness: null,
+      confirmed: 0,
+      not_found: 1,
+      contradicted: 0,
+    },
+  ],
+  missing_terminology: [
+    { term: "Kubernetes", count: 2 },
+    { term: "Terraform", count: 1 },
+  ],
+};
+
+export const emptyAnalyticsFixture: AnalyticsRead = {
+  analysis_count: 0,
+  requirement_count: 0,
+  blocked_count: 0,
+  mandatory_gap_count: 0,
+  latest_created_at: null,
+  rubric_versions: [],
+  evidence: [
+    { state: "confirmed", count: 0 },
+    { state: "partial", count: 0 },
+    { state: "not_found", count: 0 },
+    { state: "contradicted", count: 0 },
+    { state: "unknown", count: 0 },
+  ],
+  scores: [],
+  roles: [],
+  missing_terminology: [],
 };

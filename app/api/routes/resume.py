@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.errors import DomainError, domain_error_to_http_exception, internal_error_to_http_exception
 from app.core.auth import get_current_user_id
 from app.core.database import get_db_session
+from app.schemas.analytics import AnalyticsRead
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 from app.schemas.resume_edit import ResumeEditRead, ResumeVersionRead, ResumeVersionSummary
 from app.services.edit_service import EditService
@@ -64,6 +65,30 @@ async def analyze_resume(
         raise domain_error_to_http_exception(exc) from exc
     except Exception as exc:
         logger.exception("Resume analysis failed")
+        raise internal_error_to_http_exception() from exc
+
+
+@router.get(
+    "/analytics",
+    response_model=AnalyticsRead,
+    status_code=status.HTTP_200_OK,
+    summary="Owner-scoped evidence and score analytics",
+    description=(
+        "Aggregate the authenticated user's last 100 analyses. Counts evidence "
+        "states, mandatory gaps, and score trends. This is not a hiring "
+        "probability, company prediction, or cross-user benchmark."
+    ),
+)
+async def get_resume_analytics(
+    service: Annotated[ResumeService, Depends(get_resume_service)],
+    current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> AnalyticsRead:
+    try:
+        return await service.get_analytics_for_user(user_id=current_user_id)
+    except DomainError as exc:
+        raise domain_error_to_http_exception(exc) from exc
+    except Exception as exc:
+        logger.exception("Reading resume analytics failed")
         raise internal_error_to_http_exception() from exc
 
 

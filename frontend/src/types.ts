@@ -129,6 +129,51 @@ export interface ResumeVersionRead extends ResumeVersionSummary {
   completeness_included: boolean;
 }
 
+export interface EvidenceBucket {
+  state: EvidenceState;
+  count: number;
+}
+
+export interface ScorePoint {
+  id: string;
+  created_at: string;
+  file_name: string;
+  target_role: string;
+  overall_score: number | null;
+  job_fit_score: number | null;
+  resume_alignment_score: number | null;
+  application_readiness_score: number | null;
+  rubric_version: string | null;
+  blocked_by_requirement: boolean;
+}
+
+export interface RoleBreakdown {
+  target_role: string;
+  analysis_count: number;
+  avg_readiness: number | null;
+  confirmed: number;
+  not_found: number;
+  contradicted: number;
+}
+
+export interface TermCount {
+  term: string;
+  count: number;
+}
+
+export interface AnalyticsRead {
+  analysis_count: number;
+  requirement_count: number;
+  blocked_count: number;
+  mandatory_gap_count: number;
+  latest_created_at: string | null;
+  rubric_versions: string[];
+  evidence: EvidenceBucket[];
+  scores: ScorePoint[];
+  roles: RoleBreakdown[];
+  missing_terminology: TermCount[];
+}
+
 export interface ApiError {
   message: string;
   code?: string;

@@ -1,6 +1,6 @@
 # CareerOS frontend
 
-Signed-in JD-driven resume copilot. Source of truth is `src/`. Do not hand-edit `dist/`.
+Signed-in campus resume studio — JD-driven copilot plus owner-scoped analytics. Source of truth is `src/`. Do not hand-edit `dist/`.
 
 ## Local development
 

@@ -229,10 +229,10 @@ export function AnalysisDetailPage() {
 
       <section className="card">
         <header className="report-header">
+          <p className="eyebrow">Evidence report · rubric {rubric}</p>
           <h1>{analysis.file_name}</h1>
           <p className="muted">
-            {analysis.target_role} · grade {analysis.grade} · estimated level {analysis.estimated_level}{" "}
-            · rubric {rubric}
+            {analysis.target_role} · grade {analysis.grade} · estimated level {analysis.estimated_level}
           </p>
         </header>
         <div className="scores">

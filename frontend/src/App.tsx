@@ -2,8 +2,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { apiUrl, clearToken, getToken } from "./api";
 import { Banner } from "./components/Banner";
-import { HONESTY_COPY } from "./copy";
+import { StudioFooter } from "./components/StudioFooter";
+import { HONESTY_COPY, STUDIO_COPY } from "./copy";
 import { AnalysisDetailPage } from "./pages/AnalysisDetailPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AnalyzePage } from "./pages/AnalyzePage";
 import { AuthPage } from "./pages/AuthPage";
 import { HistoryPage } from "./pages/HistoryPage";
@@ -43,16 +45,18 @@ function AppShell() {
   }
 
   const modelMissing = health?.local_model === "missing";
+  const modelConfigured = health?.local_model === "configured";
+  const onAnalytics = location.pathname === "/analytics";
 
   return (
-    <div className="shell">
+    <div className={onAnalytics ? "shell shell-wide" : "shell"}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
       <header className="topbar">
         <Link className="brand" to="/">
-          <strong>CareerOS</strong>
-          <span>JD-driven resume copilot</span>
+          <strong>{STUDIO_COPY.brandMark}</strong>
+          <span>{STUDIO_COPY.brandLine}</span>
         </Link>
         <nav aria-label="Primary">
           <Link to="/" aria-current={location.pathname === "/" ? "page" : undefined}>
@@ -64,6 +68,12 @@ function AppShell() {
           >
             History
           </Link>
+          <Link
+            to="/analytics"
+            aria-current={onAnalytics ? "page" : undefined}
+          >
+            Analytics
+          </Link>
           <button className="secondary" type="button" onClick={logout}>
             Sign out
           </button>
@@ -71,12 +81,10 @@ function AppShell() {
       </header>
       {healthError ? <Banner tone="error">{healthError}</Banner> : null}
       {modelMissing ? <Banner tone="warn">{HONESTY_COPY.modelMissing}</Banner> : null}
-      {health?.local_model === "configured" ? (
-        <Banner tone="ok">{HONESTY_COPY.modelConfigured}</Banner>
-      ) : null}
       <main id="main-content">
         <Outlet />
       </main>
+      <StudioFooter modelConfigured={modelConfigured} />
     </div>
   );
 }
@@ -88,6 +96,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route path="/" element={<AnalyzePage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/analyses/:analysisId" element={<AnalysisDetailPage />} />
       </Route>
     </Routes>

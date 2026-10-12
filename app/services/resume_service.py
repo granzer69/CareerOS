@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+from collections import Counter, defaultdict
 from uuid import UUID
 
 from docx import Document as DocxDocument
@@ -14,12 +15,29 @@ from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
 from app.ai.resume_analyzer import extract_requirements_with_model
 from app.core.errors import DomainError
 from app.models.resume_analysis import ResumeAnalysis
+from app.schemas.analytics import (
+    AnalyticsRead,
+    EvidenceBucket,
+    RoleBreakdown,
+    ScorePoint,
+    TermCount,
+)
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 from app.services.evidence_matcher import match_requirements
 from app.services.jd_extraction import derive_target_role, extract_requirements, merge_requirements
 from app.services.scoring import score_application
 
 logger = logging.getLogger(__name__)
+
+EVIDENCE_STATES: tuple[str, ...] = (
+    "confirmed",
+    "partial",
+    "not_found",
+    "contradicted",
+    "unknown",
+)
+MANDATORY_GAP_STATES: frozenset[str] = frozenset({"not_found", "contradicted"})
+MISSING_TERM_LIMIT: int = 15
 
 MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
 MAX_JOB_DESCRIPTION_CHARS: int = 20_000
@@ -308,3 +326,158 @@ class ResumeService:
             analysis_id=analysis_id,
         )
         return ResumeAnalysisRead.model_validate(record)
+
+    async def get_analytics_for_user(self, *, user_id: UUID) -> AnalyticsRead:
+        """
+        Aggregate the caller's analyses into owner-scoped analytics.
+
+        Uses the same owner filter and 100-row cap as history. Omits resume
+        text and does not mix in other users' rows.
+        """
+        stmt = (
+            select(ResumeAnalysis)
+            .where(ResumeAnalysis.user_id == user_id)
+            .order_by(ResumeAnalysis.created_at.desc())
+            .limit(100)
+        )
+        try:
+            result = await self._db_session.execute(stmt)
+        except (OperationalError, ProgrammingError) as exc:
+            _raise_if_schema_outdated(exc)
+            raise
+        rows = list(result.scalars().all())
+        return build_analytics(rows)
+
+
+def _as_match_dicts(value: object) -> list[dict[str, object]]:
+    """Return requirement_matches as dict rows, ignoring malformed entries."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _as_terms(value: object) -> list[str]:
+    """Return non-empty missing-terminology strings."""
+    if not isinstance(value, list):
+        return []
+    terms: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            cleaned = item.strip()
+            if cleaned:
+                terms.append(cleaned)
+    return terms
+
+
+def _evidence_state(value: object) -> str:
+    """Map a stored evidence_state onto the known bucket set."""
+    if isinstance(value, str) and value in EVIDENCE_STATES:
+        return value
+    return "unknown"
+
+
+def build_analytics(rows: list[object]) -> AnalyticsRead:
+    """
+    Fold owned analysis rows into AnalyticsRead.
+
+    Score trends are oldest-first. Null rubric scores stay null — they are
+    not coerced to zero. Resume text is never copied onto the payload.
+    """
+    evidence_counts: Counter[str] = Counter({state: 0 for state in EVIDENCE_STATES})
+    term_counts: Counter[str] = Counter()
+    role_stats: dict[str, dict[str, object]] = defaultdict(
+        lambda: {
+            "analysis_count": 0,
+            "readiness_sum": 0,
+            "readiness_n": 0,
+            "confirmed": 0,
+            "not_found": 0,
+            "contradicted": 0,
+        }
+    )
+    requirement_count = 0
+    blocked_count = 0
+    mandatory_gap_count = 0
+    rubric_versions: list[str] = []
+    seen_versions: set[str] = set()
+
+    for row in rows:
+        matches = _as_match_dicts(getattr(row, "requirement_matches", None))
+        requirement_count += len(matches)
+        if bool(getattr(row, "blocked_by_requirement", False)):
+            blocked_count += 1
+        role = str(getattr(row, "target_role", "") or "Unknown")
+        stats = role_stats[role]
+        stats["analysis_count"] = int(stats["analysis_count"]) + 1
+        readiness = getattr(row, "application_readiness_score", None)
+        if isinstance(readiness, int):
+            stats["readiness_sum"] = int(stats["readiness_sum"]) + readiness
+            stats["readiness_n"] = int(stats["readiness_n"]) + 1
+        version = getattr(row, "rubric_version", None)
+        if isinstance(version, str) and version and version not in seen_versions:
+            seen_versions.add(version)
+            rubric_versions.append(version)
+        for match in matches:
+            state = _evidence_state(match.get("evidence_state"))
+            evidence_counts[state] += 1
+            if state in stats:
+                stats[state] = int(stats[state]) + 1
+            importance = match.get("importance")
+            if importance == "mandatory" and state in MANDATORY_GAP_STATES:
+                mandatory_gap_count += 1
+        for term in _as_terms(getattr(row, "keywords_missing", None)):
+            term_counts[term] += 1
+
+    newest = rows[0] if rows else None
+    scores_oldest_first = list(reversed(rows))
+    score_points = [
+        ScorePoint(
+            id=getattr(row, "id"),
+            created_at=getattr(row, "created_at"),
+            file_name=getattr(row, "file_name"),
+            target_role=getattr(row, "target_role"),
+            overall_score=getattr(row, "overall_score", None),
+            job_fit_score=getattr(row, "job_fit_score", None),
+            resume_alignment_score=getattr(row, "resume_alignment_score", None),
+            application_readiness_score=getattr(row, "application_readiness_score", None),
+            rubric_version=getattr(row, "rubric_version", None),
+            blocked_by_requirement=bool(getattr(row, "blocked_by_requirement", False)),
+        )
+        for row in scores_oldest_first
+    ]
+    roles = [
+        RoleBreakdown(
+            target_role=role,
+            analysis_count=int(stats["analysis_count"]),
+            avg_readiness=(
+                round(int(stats["readiness_sum"]) / int(stats["readiness_n"]), 1)
+                if int(stats["readiness_n"]) > 0
+                else None
+            ),
+            confirmed=int(stats["confirmed"]),
+            not_found=int(stats["not_found"]),
+            contradicted=int(stats["contradicted"]),
+        )
+        for role, stats in sorted(
+            role_stats.items(),
+            key=lambda item: (-int(item[1]["analysis_count"]), item[0]),
+        )
+    ]
+    missing_terminology = [
+        TermCount(term=term, count=count)
+        for term, count in sorted(term_counts.items(), key=lambda item: (-item[1], item[0]))[
+            :MISSING_TERM_LIMIT
+        ]
+    ]
+    return AnalyticsRead(
+        analysis_count=len(rows),
+        requirement_count=requirement_count,
+        blocked_count=blocked_count,
+        mandatory_gap_count=mandatory_gap_count,
+        latest_created_at=getattr(newest, "created_at", None) if newest is not None else None,
+        rubric_versions=rubric_versions,
+        evidence=[EvidenceBucket(state=state, count=evidence_counts[state]) for state in EVIDENCE_STATES],
+        scores=score_points,
+        roles=roles,
+        missing_terminology=missing_terminology,
+    )
