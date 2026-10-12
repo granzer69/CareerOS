@@ -1,0 +1,681 @@
+{
+  "version": "v1.0.0",
+  "label_protocol": "evals/grounding/v1.0.0/REVIEW.md",
+  "notes": "Labels follow Slice 4.1 product rules, not classifier output. missing_qualification agrees with needs_evidence. Lexical tests are not semantic entailment.",
+  "fixtures": {
+    "acme": "Python engineer with FastAPI experience at Acme.",
+    "rich": "Software engineer at Acme from June 2021 to March 2024. Built FastAPI services in Python. Improved latency by 20%. Used PostgreSQL and Docker. Helped ship the billing API. Worked with R for reporting.",
+    "skills": "Python engineer at Acme. Used C++ and Go.",
+    "negated": "Python engineer at Acme. No Kubernetes experience. Not a Go developer. Without C++. No Python certification.",
+    "repeat": "Python at Acme. Python at Acme. FastAPI services in Python.",
+    "unicode": "Ingénieur Python chez Café Acme — FastAPI experience.",
+    "conflict": "Senior engineer at Acme from 2021. Junior engineer at Globex from 2019. Improved latency by 20% at Acme. Grew revenue internally."
+  },
+  "classification_cases": [
+    {
+      "id": "para-reorder",
+      "family": "supported_paraphrase",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python and FastAPI engineer at Acme.",
+      "expected": "supported_rewrite",
+      "notes": "Reordering attested skills preserves meaning."
+    },
+    {
+      "id": "para-function-words",
+      "family": "supported_paraphrase",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer at Acme with FastAPI experience.",
+      "expected": "supported_rewrite",
+      "notes": "Preposition move only."
+    },
+    {
+      "id": "para-identical",
+      "family": "supported_paraphrase",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI experience at Acme.",
+      "expected": "supported_rewrite",
+      "notes": "Identity rewrite of a unique span."
+    },
+    {
+      "id": "para-comma",
+      "family": "supported_paraphrase",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer, FastAPI experience at Acme.",
+      "expected": "supported_rewrite",
+      "notes": "Punctuation-only paraphrase."
+    },
+    {
+      "id": "para-the-prefix",
+      "family": "supported_paraphrase",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "The Python engineer with FastAPI experience at Acme.",
+      "expected": "supported_rewrite",
+      "notes": "Adding a determiner does not add a fact."
+    },
+    {
+      "id": "para-as-clause",
+      "family": "supported_paraphrase",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "As a Python engineer with FastAPI experience at Acme.",
+      "expected": "supported_rewrite",
+      "notes": "Function word 'as' should not invent a claim."
+    },
+    {
+      "id": "para-rich-reorder",
+      "family": "supported_paraphrase",
+      "resume": "rich",
+      "original_span": "Built FastAPI services in Python.",
+      "proposed_text": "Built Python FastAPI services.",
+      "expected": "supported_rewrite",
+      "notes": "Attested stack tokens reordered."
+    },
+    {
+      "id": "para-metric-attested",
+      "family": "supported_paraphrase",
+      "resume": "rich",
+      "original_span": "Improved latency by 20%.",
+      "proposed_text": "Improved latency 20%.",
+      "expected": "supported_rewrite",
+      "notes": "Same attested metric, fewer glue words."
+    },
+    {
+      "id": "para-attested-r",
+      "family": "supported_paraphrase",
+      "resume": "rich",
+      "original_span": "Worked with R for reporting.",
+      "proposed_text": "Worked with R on reporting.",
+      "expected": "supported_rewrite",
+      "notes": "Short skill R is already on the resume."
+    },
+    {
+      "id": "para-attested-go-cpp",
+      "family": "supported_paraphrase",
+      "resume": "skills",
+      "original_span": "Used C++ and Go.",
+      "proposed_text": "Used Go and C++.",
+      "expected": "supported_rewrite",
+      "notes": "Short skills Go and C++ are attested; order only."
+    },
+    {
+      "id": "para-unicode-reorder",
+      "family": "supported_paraphrase",
+      "resume": "unicode",
+      "original_span": "Ingénieur Python chez Café Acme — FastAPI experience.",
+      "proposed_text": "Ingénieur Python with FastAPI experience chez Café Acme.",
+      "expected": "supported_rewrite",
+      "notes": "Unicode employer and title preserved."
+    },
+    {
+      "id": "emp-google",
+      "family": "invented_employer",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI experience at Google.",
+      "expected": "unsupported",
+      "notes": "Invented employer via at-Company pattern."
+    },
+    {
+      "id": "emp-lowercase-globex",
+      "family": "invented_employer",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI experience at globex.",
+      "expected": "unsupported",
+      "notes": "Lowercase invented employer avoids proper-noun capitals."
+    },
+    {
+      "id": "emp-northwind-supporting",
+      "family": "invented_employer",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI experience supporting Northwind.",
+      "expected": "unsupported",
+      "notes": "Adversarial employer as object of supporting, not at-Company."
+    },
+    {
+      "id": "emp-joined-globex",
+      "family": "invented_employer",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI experience, joined Globex.",
+      "expected": "unsupported",
+      "notes": "Adversarial employer via joined, not at/from/for/with."
+    },
+    {
+      "id": "emp-for-contoso",
+      "family": "invented_employer",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI experience at Acme for Contoso.",
+      "expected": "unsupported",
+      "notes": "Second employer added after an attested at-Acme phrase."
+    },
+    {
+      "id": "title-senior",
+      "family": "invented_title",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Senior Python engineer with FastAPI experience at Acme.",
+      "expected": "unsupported",
+      "notes": "Title upgrade not on the resume."
+    },
+    {
+      "id": "title-staff",
+      "family": "invented_title",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Staff Python engineer with FastAPI experience at Acme.",
+      "expected": "unsupported",
+      "notes": "Staff title is not attested."
+    },
+    {
+      "id": "title-fellow",
+      "family": "invented_title",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineering fellow at Acme.",
+      "expected": "unsupported",
+      "notes": "Adversarial title 'fellow' is not in the seniority token list."
+    },
+    {
+      "id": "title-mix-attested",
+      "family": "adversarial_mixed_facts",
+      "resume": "conflict",
+      "original_span": "Senior engineer at Acme from 2021.",
+      "proposed_text": "Senior engineer at Globex from 2019.",
+      "expected": "unsupported",
+      "notes": "Mixes attested title, employer, and year from conflicting bullets. Avoids new tokens."
+    },
+    {
+      "id": "resp-payments",
+      "family": "invented_responsibility",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer who processed payments at Acme.",
+      "expected": "unsupported",
+      "notes": "Invented responsibility."
+    },
+    {
+      "id": "resp-scaled",
+      "family": "invented_responsibility",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer who scaled the platform at Acme.",
+      "expected": "unsupported",
+      "notes": "Invented achievement; scaled/platform are not attested."
+    },
+    {
+      "id": "resp-shipped",
+      "family": "invented_responsibility",
+      "resume": "rich",
+      "original_span": "Helped ship the billing API.",
+      "proposed_text": "Shipped the billing API.",
+      "expected": "unsupported",
+      "notes": "Subtle verb change drops helper agency and claims sole delivery."
+    },
+    {
+      "id": "resp-delivered",
+      "family": "invented_responsibility",
+      "resume": "rich",
+      "original_span": "Helped ship the billing API.",
+      "proposed_text": "Delivered the billing API.",
+      "expected": "unsupported",
+      "notes": "Synonym that changes ownership of the shipment."
+    },
+    {
+      "id": "syn-or-disjunction",
+      "family": "invented_responsibility",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python or FastAPI engineer at Acme.",
+      "expected": "unsupported",
+      "notes": "Or-vs-and changes the claim from both skills to one-or-the-other."
+    },
+    {
+      "id": "date-year-2020",
+      "family": "invented_date",
+      "resume": "rich",
+      "original_span": "Software engineer at Acme from June 2021 to March 2024.",
+      "proposed_text": "Software engineer at Acme from June 2020 to March 2024.",
+      "expected": "unsupported",
+      "notes": "Invented year."
+    },
+    {
+      "id": "date-month-january",
+      "family": "invented_date",
+      "resume": "rich",
+      "original_span": "Software engineer at Acme from June 2021 to March 2024.",
+      "proposed_text": "Software engineer at Acme from January 2021 to March 2024.",
+      "expected": "unsupported",
+      "notes": "Invented month."
+    },
+    {
+      "id": "date-q3",
+      "family": "invented_date",
+      "resume": "rich",
+      "original_span": "Software engineer at Acme from June 2021 to March 2024.",
+      "proposed_text": "Software engineer at Acme from June 2021 to Q3 2024.",
+      "expected": "unsupported",
+      "notes": "Invented quarter label."
+    },
+    {
+      "id": "date-inverted",
+      "family": "adversarial_mixed_facts",
+      "resume": "rich",
+      "original_span": "Software engineer at Acme from June 2021 to March 2024.",
+      "proposed_text": "Software engineer at Acme from March 2024 to June 2021.",
+      "expected": "unsupported",
+      "notes": "All date tokens attested but start/end are reversed. Avoids new years/months."
+    },
+    {
+      "id": "metric-40-acme",
+      "family": "invented_metric",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer who improved latency by 40% at Acme.",
+      "expected": "unsupported",
+      "notes": "Fabricated metric on a resume with no numbers."
+    },
+    {
+      "id": "metric-40-rich",
+      "family": "invented_metric",
+      "resume": "rich",
+      "original_span": "Improved latency by 20%.",
+      "proposed_text": "Improved latency by 40%.",
+      "expected": "unsupported",
+      "notes": "Different magnitude than the attested 20%."
+    },
+    {
+      "id": "metric-doubled-words",
+      "family": "invented_metric",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer who doubled FastAPI throughput at Acme.",
+      "expected": "unsupported",
+      "notes": "Adversarial metric written in words, no digits."
+    },
+    {
+      "id": "metric-reattribute",
+      "family": "adversarial_mixed_facts",
+      "resume": "rich",
+      "original_span": "Improved latency by 20%.",
+      "proposed_text": "Improved FastAPI by 20%.",
+      "expected": "unsupported",
+      "notes": "Reuses attested 20% on a different object. No new metric token."
+    },
+    {
+      "id": "metric-employer-swap",
+      "family": "adversarial_mixed_facts",
+      "resume": "conflict",
+      "original_span": "Improved latency by 20% at Acme.",
+      "proposed_text": "Improved latency by 20% at Globex.",
+      "expected": "unsupported",
+      "notes": "Moves an attested metric onto a different attested employer."
+    },
+    {
+      "id": "skill-go-r-cpp",
+      "family": "short_skill",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python, FastAPI, Go, R, and C++ engineer at Acme.",
+      "expected": "unsupported",
+      "notes": "Short skills Go, R, and C++ are not on the resume."
+    },
+    {
+      "id": "skill-golang",
+      "family": "short_skill",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI and golang experience at Acme.",
+      "expected": "unsupported",
+      "notes": "golang alias for Go."
+    },
+    {
+      "id": "skill-k8s",
+      "family": "short_skill",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI and k8s experience at Acme.",
+      "expected": "unsupported",
+      "notes": "Short skill k8s / Kubernetes alias."
+    },
+    {
+      "id": "skill-csharp",
+      "family": "short_skill",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI and C# experience at Acme.",
+      "expected": "unsupported",
+      "notes": "Short skill C# is not attested."
+    },
+    {
+      "id": "skill-go-from-negation",
+      "family": "conflicting_or_negated",
+      "resume": "negated",
+      "original_span": "Python engineer at Acme.",
+      "proposed_text": "Python engineer and Go developer at Acme.",
+      "expected": "unsupported",
+      "notes": "Go appears only inside 'Not a Go developer'. Positive claim is fabricated."
+    },
+    {
+      "id": "own-led",
+      "family": "ownership_or_intensifier",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Led Python FastAPI work at Acme.",
+      "expected": "needs_evidence",
+      "notes": "Ownership verb led is not attested."
+    },
+    {
+      "id": "own-owned",
+      "family": "ownership_or_intensifier",
+      "resume": "rich",
+      "original_span": "Helped ship the billing API.",
+      "proposed_text": "Owned the billing API.",
+      "expected": "needs_evidence",
+      "notes": "Helped -> owned upgrades responsibility."
+    },
+    {
+      "id": "own-managed",
+      "family": "ownership_or_intensifier",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Managed Python FastAPI work at Acme.",
+      "expected": "needs_evidence",
+      "notes": "Managed is an unattested ownership verb."
+    },
+    {
+      "id": "own-built-to-owned",
+      "family": "ownership_or_intensifier",
+      "resume": "rich",
+      "original_span": "Built FastAPI services in Python.",
+      "proposed_text": "Owned FastAPI services in Python.",
+      "expected": "needs_evidence",
+      "notes": "Subtle verb change from built to owned."
+    },
+    {
+      "id": "int-expert",
+      "family": "ownership_or_intensifier",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Expert Python engineer with FastAPI experience at Acme.",
+      "expected": "needs_evidence",
+      "notes": "Unverifiable intensifier."
+    },
+    {
+      "id": "int-fluent",
+      "family": "ownership_or_intensifier",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Fluent Python engineer with FastAPI experience at Acme.",
+      "expected": "needs_evidence",
+      "notes": "Fluent is not attested."
+    },
+    {
+      "id": "int-10x",
+      "family": "ownership_or_intensifier",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "10x Python engineer with FastAPI experience at Acme.",
+      "expected": "needs_evidence",
+      "notes": "10x is an intensifier; a lexical number detector may instead call it unsupported. Either reject-bucket is acceptable for apply-safety."
+    },
+    {
+      "id": "amb-repeat",
+      "family": "ambiguous_span",
+      "resume": "repeat",
+      "original_span": "Python at Acme.",
+      "proposed_text": "Python at Acme.",
+      "expected": "needs_evidence",
+      "notes": "Repeated span must not first-occurrence replace."
+    },
+    {
+      "id": "short-span-acme",
+      "family": "ambiguous_span",
+      "resume": "acme",
+      "original_span": "Acme.",
+      "proposed_text": "Acme",
+      "expected": "needs_evidence",
+      "notes": "Span shorter than the safe-apply minimum."
+    },
+    {
+      "id": "miss-unbound-k8s",
+      "family": "missing_evidence",
+      "resume": "acme",
+      "original_span": "Kubernetes production clusters",
+      "proposed_text": "Kubernetes production clusters",
+      "requirement_id": "req-k8s",
+      "matches": [
+        {
+          "id": "req-k8s",
+          "text": "Kubernetes",
+          "category": "skill",
+          "importance": "preferred",
+          "is_eligibility": false,
+          "evidence_state": "not_found",
+          "evidence_span": null,
+          "rationale": "Not demonstrated in the supplied evidence."
+        }
+      ],
+      "expected": "needs_evidence",
+      "notes": "Not-found JD requirement with no unique resume span. Implementation may emit missing_qualification."
+    },
+    {
+      "id": "miss-add-k8s-rewrite",
+      "family": "missing_evidence",
+      "resume": "acme",
+      "original_span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python engineer with FastAPI and Kubernetes experience at Acme.",
+      "expected": "unsupported",
+      "notes": "Inserting a missing qualification into a unique span is an invented claim."
+    },
+    {
+      "id": "miss-span-no-req",
+      "family": "missing_evidence",
+      "resume": "acme",
+      "original_span": "this text is absent from the resume body",
+      "proposed_text": "this text is absent from the resume body",
+      "expected": "unsupported",
+      "notes": "Unbound span with no linked missing requirement."
+    },
+    {
+      "id": "neg-k8s-add",
+      "family": "conflicting_or_negated",
+      "resume": "negated",
+      "original_span": "Python engineer at Acme.",
+      "proposed_text": "Python engineer with Kubernetes experience at Acme.",
+      "expected": "unsupported",
+      "notes": "Kubernetes appears only as 'No Kubernetes experience'."
+    },
+    {
+      "id": "neg-strip-certification",
+      "family": "conflicting_or_negated",
+      "resume": "negated",
+      "original_span": "No Python certification.",
+      "proposed_text": "Python certification.",
+      "expected": "unsupported",
+      "notes": "Drops the negation while keeping attested tokens."
+    },
+    {
+      "id": "neg-without-cpp",
+      "family": "conflicting_or_negated",
+      "resume": "negated",
+      "original_span": "Python engineer at Acme.",
+      "proposed_text": "Python engineer at Acme with C++.",
+      "expected": "unsupported",
+      "notes": "C++ appears only inside Without C++."
+    },
+    {
+      "id": "syn-built-created",
+      "family": "ownership_or_intensifier",
+      "resume": "rich",
+      "original_span": "Built FastAPI services in Python.",
+      "proposed_text": "Created FastAPI services in Python.",
+      "expected": "needs_evidence",
+      "notes": "Near-synonym verb is not attested; treat as needing evidence rather than a safe rewrite."
+    }
+  ],
+  "integrity_cases": [
+    {
+      "id": "int-repeat-ambiguous",
+      "check": "locate_span",
+      "resume": "repeat",
+      "span": "Python at Acme.",
+      "expected_status": "ambiguous"
+    },
+    {
+      "id": "int-repeat-unique-longer",
+      "check": "locate_span",
+      "resume": "repeat",
+      "span": "FastAPI services in Python.",
+      "expected_status": "unique"
+    },
+    {
+      "id": "int-missing-span",
+      "check": "locate_span",
+      "resume": "acme",
+      "span": "Rust engineer",
+      "expected_status": "missing"
+    },
+    {
+      "id": "int-unicode-locate",
+      "check": "locate_span",
+      "resume": "unicode",
+      "span": "Café Acme",
+      "expected_status": "unique"
+    },
+    {
+      "id": "int-hash-stable",
+      "check": "content_hash",
+      "left": "Python engineer with FastAPI experience at Acme.",
+      "right": "Python engineer with FastAPI experience at Acme.",
+      "expected_equal": true
+    },
+    {
+      "id": "int-hash-edit",
+      "check": "content_hash",
+      "left": "Python engineer with FastAPI experience at Acme.",
+      "right": "Python and FastAPI engineer at Acme.",
+      "expected_equal": false
+    },
+    {
+      "id": "int-hash-unicode-cafe",
+      "check": "content_hash",
+      "left": "Café",
+      "right": "Cafe",
+      "expected_equal": false
+    },
+    {
+      "id": "int-hash-nfc-nfd",
+      "check": "nfc_nfd_hash",
+      "text_nfc": "Café",
+      "notes": "NFC é vs NFD e+combining acute must not share a hash; locate of NFC in NFD is missing."
+    },
+    {
+      "id": "int-unicode-offsets",
+      "check": "unicode_offsets",
+      "resume": "unicode",
+      "span": "Café Acme"
+    },
+    {
+      "id": "int-cjk-offsets",
+      "check": "unicode_offsets",
+      "resume_text": "Pythonエンジニア at Acme. FastAPI experience.",
+      "span": "Pythonエンジニア"
+    },
+    {
+      "id": "int-emoji-offsets",
+      "check": "unicode_offsets",
+      "resume_text": "Python engineer at Acme 🚀. FastAPI experience.",
+      "span": "Acme 🚀"
+    },
+    {
+      "id": "int-apply-unique",
+      "check": "apply_span_at",
+      "resume": "acme",
+      "span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python and FastAPI engineer at Acme.",
+      "expect_error": false
+    },
+    {
+      "id": "int-stale-apply",
+      "check": "apply_span_at",
+      "resume": "acme",
+      "span": "Python engineer with FastAPI experience at Acme.",
+      "start_override": 0,
+      "end_override": 10,
+      "expected_span_override": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "x",
+      "expect_error": true
+    },
+    {
+      "id": "int-apply-then-stale",
+      "check": "apply_then_stale",
+      "resume": "acme",
+      "span": "Python engineer with FastAPI experience at Acme.",
+      "proposed_text": "Python and FastAPI engineer at Acme."
+    },
+    {
+      "id": "int-overlap-conflicts",
+      "check": "resolve_conflicts",
+      "resume": "rich",
+      "proposals": [
+        {
+          "original_span": "Built FastAPI services in Python.",
+          "proposed_text": "Built Python FastAPI services."
+        },
+        {
+          "original_span": "FastAPI services in Python.",
+          "proposed_text": "FastAPI services in Python."
+        }
+      ],
+      "expected_kinds": ["supported_rewrite", "unsupported"]
+    },
+    {
+      "id": "int-duplicate-span",
+      "check": "resolve_conflicts",
+      "resume": "acme",
+      "proposals": [
+        {
+          "original_span": "Python engineer with FastAPI experience at Acme.",
+          "proposed_text": "Python and FastAPI engineer at Acme."
+        },
+        {
+          "original_span": "Python engineer with FastAPI experience at Acme.",
+          "proposed_text": "Python FastAPI engineer at Acme."
+        }
+      ],
+      "expected_kinds": ["supported_rewrite", "unsupported"]
+    },
+    {
+      "id": "int-nonoverlap-ok",
+      "check": "resolve_conflicts",
+      "resume": "rich",
+      "proposals": [
+        {
+          "original_span": "Built FastAPI services in Python.",
+          "proposed_text": "Built Python FastAPI services."
+        },
+        {
+          "original_span": "Improved latency by 20%.",
+          "proposed_text": "Improved latency 20%."
+        }
+      ],
+      "expected_kinds": ["supported_rewrite", "supported_rewrite"]
+    },
+    {
+      "id": "int-repeated-substring-unique-context",
+      "check": "locate_span",
+      "resume": "repeat",
+      "span": "FastAPI services in Python.",
+      "expected_status": "unique",
+      "notes": "Python repeats, but the longer span is unique."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": "v1.0.0",
+  "created": "2026-10-12",
+  "label_source": "spec-labeled",
+  "inference": "none",
+  "dataset": "evals/grounding/v1.0.0/cases.json",
+  "runner": "evals/grounding/run.py",
+  "classification_cases": 55,
+  "integrity_cases": 18,
+  "notes": "Deterministic fixture. Labels were assigned from Slice 4.1 rules, not from classifier output."
+}

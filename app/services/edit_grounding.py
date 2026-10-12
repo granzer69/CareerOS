@@ -13,6 +13,9 @@ SpanStatus = Literal["missing", "ambiguous", "unique"]
 _TOKEN_RE = re.compile(r"[a-z0-9+#.]{2,}")
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?(?:\s*%|\s*k\b|\s*m\b|\s*b\b)?", re.IGNORECASE)
 _YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
+_NEGATED_CLAUSE_RE = re.compile(
+    r"(?i)\b(?:no|not a|not an|without|never|not)\b[^.!?\n]*"
+)
 _SHORT_SKILL_RE = re.compile(
     r"(?i)(?<![a-z0-9+])(c\+\+|c#|\.net|k8s|aws|gcp|sql|golang|(?<![a-z])go(?![a-z])|(?<![a-z])r(?![a-z])|(?<![a-z])c(?![a-z+#]))(?![a-z0-9+#])"
 )
@@ -22,7 +25,11 @@ _CAPITALIZED_RE = re.compile(r"\b[A-Z][A-Za-z0-9&.\-]{1,}\b")
 _GLUE = {
     "a",
     "an",
+    "as",
     "at",
+    "be",
+    "by",
+    "is",
     "to",
     "of",
     "in",
@@ -167,9 +174,29 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
 
 
+def _strip_token_punctuation(token: str) -> str:
+    """Drop sentence-final dots so 'Acme.' and 'Acme' attest the same token.
+
+    Leading-dot skills such as .net are preserved. Internal dots (node.js) stay.
+    """
+    if token.startswith("."):
+        return token
+    return token.strip(".")
+
+
 def tokens(text: str) -> list[str]:
     """Lexical tokens, including 2-character tokens needed for short skills."""
-    return [token for token in _TOKEN_RE.findall(normalize(text)) if token not in _GLUE]
+    found: list[str] = []
+    for raw in _TOKEN_RE.findall(normalize(text)):
+        token = _strip_token_punctuation(raw)
+        if len(token) >= 2 and token not in _GLUE:
+            found.append(token)
+    return found
+
+
+def positive_evidence_text(resume_text: str) -> str:
+    """Remove negated clauses so their tokens are not treated as positive evidence."""
+    return _NEGATED_CLAUSE_RE.sub(" ", resume_text)
 
 
 def numbers(text: str) -> set[str]:
@@ -196,17 +223,24 @@ def short_skills(text: str) -> set[str]:
     return found
 
 
+def _normalize_noun(text: str) -> str:
+    """Lowercase a proper noun and drop sentence-final periods."""
+    return normalize(text).strip(".")
+
+
 def _proper_nouns(text: str) -> set[str]:
     found: set[str] = set()
     for match in _PROPER_NOUN_RE.finditer(text):
-        found.add(normalize(match.group(1)))
+        noun = _normalize_noun(match.group(1))
+        if noun:
+            found.add(noun)
     words = text.split()
     for index, word in enumerate(words):
         if index == 0:
             continue
-        cleaned = re.sub(r"[^A-Za-z0-9&.+\-#]", "", word)
-        if _CAPITALIZED_RE.fullmatch(cleaned) and normalize(cleaned) not in _GLUE:
-            found.add(normalize(cleaned))
+        cleaned = re.sub(r"[^A-Za-z0-9&.+\-#]", "", word).strip(".")
+        if _CAPITALIZED_RE.fullmatch(cleaned) and _normalize_noun(cleaned) not in _GLUE:
+            found.add(_normalize_noun(cleaned))
     return found
 
 
@@ -365,15 +399,16 @@ def classify_proposal(
     proposed = proposal.proposed_text.strip()
     location = locate_span(resume_text, original)
     found = location.exact
-    resume_norm = normalize(resume_text)
-    resume_token_set = set(tokens(resume_text))
-    resume_skills = short_skills(resume_text)
-    resume_nouns = _proper_nouns(resume_text) | {normalize(part) for part in resume_text.split() if part}
-    resume_titles = _title_tokens(resume_text)
-    resume_months = _months(resume_text)
-    resume_years = _years(resume_text)
-    resume_numbers = numbers(resume_text)
-    resume_verbs = _ownership_verbs(resume_text)
+    attested = positive_evidence_text(resume_text)
+    resume_norm = normalize(attested)
+    resume_token_set = set(tokens(attested))
+    resume_skills = short_skills(attested)
+    resume_nouns = _proper_nouns(attested) | {normalize(part) for part in attested.split() if part}
+    resume_titles = _title_tokens(attested)
+    resume_months = _months(attested)
+    resume_years = _years(attested)
+    resume_numbers = numbers(attested)
+    resume_verbs = _ownership_verbs(attested)
 
     extra_numbers = numbers(proposed) - resume_numbers
     if extra_numbers:
@@ -445,30 +480,8 @@ def classify_proposal(
             end=location.end,
         )
 
-    extra_content = [
-        token
-        for token in tokens(proposed)
-        if token not in resume_token_set
-        and token not in resume_skills
-        and token not in _GLUE
-        and token not in _INTENSIFIERS
-        and token not in _OWNERSHIP_VERBS
-        and token not in _TITLE_TOKENS
-    ]
-    if extra_content:
-        return _unsupported(
-            original=original,
-            proposed=proposed,
-            found=found,
-            requirement_id=proposal.requirement_id,
-            rationale="Invented responsibility or achievement is not present in the resume: "
-            + ", ".join(sorted(set(extra_content))),
-            start=location.start,
-            end=location.end,
-        )
-
     extra_verbs = _ownership_verbs(proposed) - resume_verbs
-    extra_intensity = _intensifiers(proposed) - _intensifiers(resume_text)
+    extra_intensity = _intensifiers(proposed) - _intensifiers(attested)
     if extra_verbs or extra_intensity:
         labels = sorted(extra_verbs | extra_intensity)
         return _needs_evidence(
@@ -493,6 +506,28 @@ def classify_proposal(
             evidence_span=None,
             requirement_id=linked.id,
             rationale="This qualification is not in the resume. The candidate must supply evidence.",
+        )
+
+    extra_content = [
+        token
+        for token in tokens(proposed)
+        if token not in resume_token_set
+        and token not in resume_skills
+        and token not in _GLUE
+        and token not in _INTENSIFIERS
+        and token not in _OWNERSHIP_VERBS
+        and token not in _TITLE_TOKENS
+    ]
+    if extra_content:
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
+            requirement_id=proposal.requirement_id,
+            rationale="Invented responsibility or achievement is not present in the resume: "
+            + ", ".join(sorted(set(extra_content))),
+            start=location.start,
+            end=location.end,
         )
 
     if location.status == "missing":

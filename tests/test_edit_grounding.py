@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from app.schemas.evidence import RequirementMatch
 from app.schemas.resume_edit import ModelEditBatch, ModelEditProposal
 from app.services.edit_grounding import (
     apply_span_at,
@@ -181,6 +182,72 @@ def test_stale_offset_apply_fails() -> None:
 def test_content_hash_changes_with_text() -> None:
     """Version binding uses a hash of the exact source snapshot."""
     assert content_hash(SAMPLE_RESUME) != content_hash(PARAPHRASE)
+
+
+def test_sentence_final_employer_period_matches_attested_noun() -> None:
+    """A trailing period on an attested employer is not treated as a new company."""
+    resume = "Junior engineer at Globex from 2019. Built FastAPI services."
+    classified = classify_proposal(
+        _proposal("Junior engineer at Globex from 2019.", "Junior engineer at Globex."),
+        resume_text=resume,
+        matches=[],
+    )
+    assert classified.kind == "supported_rewrite"
+
+
+def test_sentence_final_period_does_not_invent_tokens() -> None:
+    """Moving a word away from a sentence-final period is still a supported paraphrase."""
+    classified = classify_proposal(
+        _proposal(SAMPLE_RESUME, "Python engineer at Acme with FastAPI experience."),
+        resume_text=SAMPLE_RESUME,
+        matches=_matches(),
+    )
+    assert classified.kind == "supported_rewrite"
+
+
+def test_as_function_word_is_not_an_invented_claim() -> None:
+    """The function word 'as' does not make a meaning-preserving rewrite unsupported."""
+    classified = classify_proposal(
+        _proposal(SAMPLE_RESUME, "As a Python engineer with FastAPI experience at Acme."),
+        resume_text=SAMPLE_RESUME,
+        matches=_matches(),
+    )
+    assert classified.kind == "supported_rewrite"
+
+
+def test_negated_skill_is_not_positive_evidence() -> None:
+    """Tokens that appear only inside negated clauses cannot support a rewrite."""
+    resume = "Python engineer at Acme. No Kubernetes experience. Not a Go developer."
+    classified = classify_proposal(
+        _proposal("Python engineer at Acme.", "Python engineer with Kubernetes experience at Acme."),
+        resume_text=resume,
+        matches=[],
+    )
+    assert classified.kind == "unsupported"
+
+
+def test_unbound_missing_requirement_is_a_qualification_flag() -> None:
+    """A not-found requirement with no unique span is missing_qualification, not a rewrite."""
+    classified = classify_proposal(
+        ModelEditProposal(
+            original_span="Kubernetes production clusters",
+            proposed_text="Kubernetes production clusters",
+            requirement_id="req-k8s",
+            rationale="test",
+        ),
+        resume_text=SAMPLE_RESUME,
+        matches=[
+            RequirementMatch(
+                id="req-k8s",
+                text="Kubernetes",
+                category="skill",
+                importance="preferred",
+                evidence_state="not_found",
+                rationale="Not demonstrated.",
+            )
+        ],
+    )
+    assert classified.kind == "missing_qualification"
 
 
 def test_model_edit_schema_rejects_numeric_scores() -> None:

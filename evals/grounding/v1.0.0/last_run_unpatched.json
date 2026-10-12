@@ -1,0 +1,1220 @@
+{
+  "version": "v1.0.0",
+  "ran_at": "2026-10-12T06:51:34Z",
+  "dataset": "evals/grounding/v1.0.0/cases.json",
+  "classifier": "app.services.edit_grounding.classify_proposal",
+  "inference": "none",
+  "metrics": {
+    "n_classification": 55,
+    "tp_supported": 6,
+    "fp_false_supported": 4,
+    "fn_false_rejected": 5,
+    "tn_correct_reject": 40,
+    "predicted_supported": 10,
+    "expected_supported": 11,
+    "expected_reject": 44,
+    "precision_supported": 0.6,
+    "recall_supported": 0.5454545454545454,
+    "false_supported_rate": 0.09090909090909091,
+    "false_rejected_rate": 0.45454545454545453,
+    "label_agreement": 0.7636363636363637,
+    "confusion_expected_by_actual": {
+      "supported_rewrite": {
+        "supported_rewrite": 6,
+        "unsupported": 5
+      },
+      "unsupported": {
+        "unsupported": 29,
+        "supported_rewrite": 4
+      },
+      "needs_evidence": {
+        "needs_evidence": 7,
+        "unsupported": 4
+      }
+    },
+    "family_counts": {
+      "supported_paraphrase": 11,
+      "invented_employer": 5,
+      "invented_title": 3,
+      "adversarial_mixed_facts": 4,
+      "invented_responsibility": 5,
+      "invented_date": 3,
+      "invented_metric": 3,
+      "short_skill": 4,
+      "conflicting_or_negated": 4,
+      "ownership_or_intensifier": 8,
+      "ambiguous_span": 2,
+      "missing_evidence": 3
+    },
+    "limitation": "n is too small for production-level factual guarantees. These are lexical regression tests, not semantic entailment."
+  },
+  "n_integrity": 18,
+  "integrity_passed": 16,
+  "false_supported": [
+    {
+      "id": "title-mix-attested",
+      "family": "adversarial_mixed_facts",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 34,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Mixes attested title, employer, and year from conflicting bullets. Avoids new tokens."
+    },
+    {
+      "id": "metric-reattribute",
+      "family": "adversarial_mixed_facts",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 90,
+      "span_end": 114,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Reuses attested 20% on a different object. No new metric token."
+    },
+    {
+      "id": "neg-k8s-add",
+      "family": "conflicting_or_negated",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 24,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Kubernetes appears only as 'No Kubernetes experience'."
+    },
+    {
+      "id": "neg-strip-certification",
+      "family": "conflicting_or_negated",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 84,
+      "span_end": 108,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Drops the negation while keeping attested tokens."
+    }
+  ],
+  "false_rejected": [
+    {
+      "id": "para-function-words",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme, experience.",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Preposition move only."
+    },
+    {
+      "id": "para-as-clause",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: as",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Function word 'as' should not invent a claim."
+    },
+    {
+      "id": "para-rich-reorder",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: python, services.",
+      "span_start": 56,
+      "span_end": 89,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Attested stack tokens reordered."
+    },
+    {
+      "id": "para-attested-go-cpp",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: c++.",
+      "span_start": 25,
+      "span_end": 41,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Short skills Go and C++ are attested; order only."
+    },
+    {
+      "id": "para-unicode-reorder",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme.",
+      "span_start": 0,
+      "span_end": 53,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Unicode employer and title preserved."
+    }
+  ],
+  "other_mismatches": [
+    {
+      "id": "int-10x",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 10",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "10x is an intensifier; a lexical number detector may instead call it unsupported. Either reject-bucket is acceptable for apply-safety."
+    },
+    {
+      "id": "short-span-acme",
+      "family": "ambiguous_span",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme",
+      "span_start": 43,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Span shorter than the safe-apply minimum."
+    },
+    {
+      "id": "miss-unbound-k8s",
+      "family": "missing_evidence",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: clusters, kubernetes, production",
+      "span_start": null,
+      "span_end": null,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Not-found JD requirement with no unique resume span. Implementation may emit missing_qualification."
+    },
+    {
+      "id": "syn-built-created",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: created",
+      "span_start": 56,
+      "span_end": 89,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Near-synonym verb is not attested; treat as needing evidence rather than a safe rewrite."
+    }
+  ],
+  "classification": [
+    {
+      "id": "para-reorder",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Reordering attested skills preserves meaning."
+    },
+    {
+      "id": "para-function-words",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme, experience.",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Preposition move only."
+    },
+    {
+      "id": "para-identical",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Identity rewrite of a unique span."
+    },
+    {
+      "id": "para-comma",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Punctuation-only paraphrase."
+    },
+    {
+      "id": "para-the-prefix",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Adding a determiner does not add a fact."
+    },
+    {
+      "id": "para-as-clause",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: as",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Function word 'as' should not invent a claim."
+    },
+    {
+      "id": "para-rich-reorder",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: python, services.",
+      "span_start": 56,
+      "span_end": 89,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Attested stack tokens reordered."
+    },
+    {
+      "id": "para-metric-attested",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 90,
+      "span_end": 114,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Same attested metric, fewer glue words."
+    },
+    {
+      "id": "para-attested-r",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 172,
+      "span_end": 200,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Short skill R is already on the resume."
+    },
+    {
+      "id": "para-attested-go-cpp",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: c++.",
+      "span_start": 25,
+      "span_end": 41,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Short skills Go and C++ are attested; order only."
+    },
+    {
+      "id": "para-unicode-reorder",
+      "family": "supported_paraphrase",
+      "expected": "supported_rewrite",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme.",
+      "span_start": 0,
+      "span_end": 53,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": true,
+      "notes": "Unicode employer and title preserved."
+    },
+    {
+      "id": "emp-google",
+      "family": "invented_employer",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented employer or proper noun(s) are not present in the resume: google.",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Invented employer via at-Company pattern."
+    },
+    {
+      "id": "emp-lowercase-globex",
+      "family": "invented_employer",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: globex.",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Lowercase invented employer avoids proper-noun capitals."
+    },
+    {
+      "id": "emp-northwind-supporting",
+      "family": "invented_employer",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: northwind., supporting",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Adversarial employer as object of supporting, not at-Company."
+    },
+    {
+      "id": "emp-joined-globex",
+      "family": "invented_employer",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: globex., joined",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Adversarial employer via joined, not at/from/for/with."
+    },
+    {
+      "id": "emp-for-contoso",
+      "family": "invented_employer",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented employer or proper noun(s) are not present in the resume: contoso.",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Second employer added after an attested at-Acme phrase."
+    },
+    {
+      "id": "title-senior",
+      "family": "invented_title",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented job title(s) are not present in the resume: senior",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Title upgrade not on the resume."
+    },
+    {
+      "id": "title-staff",
+      "family": "invented_title",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented job title(s) are not present in the resume: staff",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Staff title is not attested."
+    },
+    {
+      "id": "title-fellow",
+      "family": "invented_title",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: engineering, fellow",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Adversarial title 'fellow' is not in the seniority token list."
+    },
+    {
+      "id": "title-mix-attested",
+      "family": "adversarial_mixed_facts",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 34,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Mixes attested title, employer, and year from conflicting bullets. Avoids new tokens."
+    },
+    {
+      "id": "resp-payments",
+      "family": "invented_responsibility",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: payments, processed",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Invented responsibility."
+    },
+    {
+      "id": "resp-scaled",
+      "family": "invented_responsibility",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: platform, scaled",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Invented achievement; scaled/platform are not attested."
+    },
+    {
+      "id": "resp-shipped",
+      "family": "invented_responsibility",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: shipped",
+      "span_start": 143,
+      "span_end": 171,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Subtle verb change drops helper agency and claims sole delivery."
+    },
+    {
+      "id": "resp-delivered",
+      "family": "invented_responsibility",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: delivered",
+      "span_start": 143,
+      "span_end": 171,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Synonym that changes ownership of the shipment."
+    },
+    {
+      "id": "syn-or-disjunction",
+      "family": "invented_responsibility",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: or",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Or-vs-and changes the claim from both skills to one-or-the-other."
+    },
+    {
+      "id": "date-year-2020",
+      "family": "invented_date",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 2020",
+      "span_start": 0,
+      "span_end": 55,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Invented year."
+    },
+    {
+      "id": "date-month-january",
+      "family": "invented_date",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Date(s) are not present in the resume: january",
+      "span_start": 0,
+      "span_end": 55,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Invented month."
+    },
+    {
+      "id": "date-q3",
+      "family": "invented_date",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 3",
+      "span_start": 0,
+      "span_end": 55,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Invented quarter label."
+    },
+    {
+      "id": "date-inverted",
+      "family": "adversarial_mixed_facts",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: 2021., 2024",
+      "span_start": 0,
+      "span_end": 55,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "All date tokens attested but start/end are reversed. Avoids new years/months."
+    },
+    {
+      "id": "metric-40-acme",
+      "family": "invented_metric",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 40%",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Fabricated metric on a resume with no numbers."
+    },
+    {
+      "id": "metric-40-rich",
+      "family": "invented_metric",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 40%",
+      "span_start": 90,
+      "span_end": 114,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Different magnitude than the attested 20%."
+    },
+    {
+      "id": "metric-doubled-words",
+      "family": "invented_metric",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: doubled, throughput",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Adversarial metric written in words, no digits."
+    },
+    {
+      "id": "metric-reattribute",
+      "family": "adversarial_mixed_facts",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 90,
+      "span_end": 114,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Reuses attested 20% on a different object. No new metric token."
+    },
+    {
+      "id": "metric-employer-swap",
+      "family": "adversarial_mixed_facts",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented employer or proper noun(s) are not present in the resume: globex.",
+      "span_start": 72,
+      "span_end": 104,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Moves an attested metric onto a different attested employer."
+    },
+    {
+      "id": "skill-go-r-cpp",
+      "family": "short_skill",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Unsupported skill(s) are not demonstrated in the resume: c++, go, r",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Short skills Go, R, and C++ are not on the resume."
+    },
+    {
+      "id": "skill-golang",
+      "family": "short_skill",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Unsupported skill(s) are not demonstrated in the resume: golang",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "golang alias for Go."
+    },
+    {
+      "id": "skill-k8s",
+      "family": "short_skill",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 8",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Short skill k8s / Kubernetes alias."
+    },
+    {
+      "id": "skill-csharp",
+      "family": "short_skill",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Unsupported skill(s) are not demonstrated in the resume: c#",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Short skill C# is not attested."
+    },
+    {
+      "id": "skill-go-from-negation",
+      "family": "conflicting_or_negated",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: developer",
+      "span_start": 0,
+      "span_end": 24,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Go appears only inside 'Not a Go developer'. Positive claim is fabricated."
+    },
+    {
+      "id": "own-led",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "Claim is ambiguous without additional evidence: led",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Ownership verb led is not attested."
+    },
+    {
+      "id": "own-owned",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "Claim is ambiguous without additional evidence: owned",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Helped -> owned upgrades responsibility."
+    },
+    {
+      "id": "own-managed",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "Claim is ambiguous without additional evidence: managed",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Managed is an unattested ownership verb."
+    },
+    {
+      "id": "own-built-to-owned",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "Claim is ambiguous without additional evidence: owned",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Subtle verb change from built to owned."
+    },
+    {
+      "id": "int-expert",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "Claim is ambiguous without additional evidence: expert",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Unverifiable intensifier."
+    },
+    {
+      "id": "int-fluent",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "Claim is ambiguous without additional evidence: fluent",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Fluent is not attested."
+    },
+    {
+      "id": "int-10x",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Fabricated metric(s) are not present in the resume: 10",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "10x is an intensifier; a lexical number detector may instead call it unsupported. Either reject-bucket is acceptable for apply-safety."
+    },
+    {
+      "id": "amb-repeat",
+      "family": "ambiguous_span",
+      "expected": "needs_evidence",
+      "actual": "needs_evidence",
+      "actual_raw": "needs_evidence",
+      "rationale": "original_span matches more than one location; refusing first-occurrence replacement.",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Repeated span must not first-occurrence replace."
+    },
+    {
+      "id": "short-span-acme",
+      "family": "ambiguous_span",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme",
+      "span_start": 43,
+      "span_end": 48,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Span shorter than the safe-apply minimum."
+    },
+    {
+      "id": "miss-unbound-k8s",
+      "family": "missing_evidence",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: clusters, kubernetes, production",
+      "span_start": null,
+      "span_end": null,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Not-found JD requirement with no unique resume span. Implementation may emit missing_qualification."
+    },
+    {
+      "id": "miss-add-k8s-rewrite",
+      "family": "missing_evidence",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented employer or proper noun(s) are not present in the resume: kubernetes",
+      "span_start": 0,
+      "span_end": 48,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Inserting a missing qualification into a unique span is an invented claim."
+    },
+    {
+      "id": "miss-span-no-req",
+      "family": "missing_evidence",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: absent, body, is, resume, text",
+      "span_start": null,
+      "span_end": null,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Unbound span with no linked missing requirement."
+    },
+    {
+      "id": "neg-k8s-add",
+      "family": "conflicting_or_negated",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 0,
+      "span_end": 24,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Kubernetes appears only as 'No Kubernetes experience'."
+    },
+    {
+      "id": "neg-strip-certification",
+      "family": "conflicting_or_negated",
+      "expected": "unsupported",
+      "actual": "supported_rewrite",
+      "actual_raw": "supported_rewrite",
+      "rationale": "eval",
+      "span_start": 84,
+      "span_end": 108,
+      "label_match": false,
+      "false_supported": true,
+      "false_rejected": false,
+      "notes": "Drops the negation while keeping attested tokens."
+    },
+    {
+      "id": "neg-without-cpp",
+      "family": "conflicting_or_negated",
+      "expected": "unsupported",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: acme",
+      "span_start": 0,
+      "span_end": 24,
+      "label_match": true,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "C++ appears only inside Without C++."
+    },
+    {
+      "id": "syn-built-created",
+      "family": "ownership_or_intensifier",
+      "expected": "needs_evidence",
+      "actual": "unsupported",
+      "actual_raw": "unsupported",
+      "rationale": "Invented responsibility or achievement is not present in the resume: created",
+      "span_start": 56,
+      "span_end": 89,
+      "label_match": false,
+      "false_supported": false,
+      "false_rejected": false,
+      "notes": "Near-synonym verb is not attested; treat as needing evidence rather than a safe rewrite."
+    }
+  ],
+  "integrity": [
+    {
+      "id": "int-repeat-ambiguous",
+      "check": "locate_span",
+      "passed": true,
+      "detail": {
+        "status": "ambiguous",
+        "start": null,
+        "end": null,
+        "exact": null
+      }
+    },
+    {
+      "id": "int-repeat-unique-longer",
+      "check": "locate_span",
+      "passed": true,
+      "detail": {
+        "status": "unique",
+        "start": 32,
+        "end": 59,
+        "exact": "FastAPI services in Python."
+      }
+    },
+    {
+      "id": "int-missing-span",
+      "check": "locate_span",
+      "passed": true,
+      "detail": {
+        "status": "missing",
+        "start": null,
+        "end": null,
+        "exact": null
+      }
+    },
+    {
+      "id": "int-unicode-locate",
+      "check": "locate_span",
+      "passed": true,
+      "detail": {
+        "status": "unique",
+        "start": 22,
+        "end": 31,
+        "exact": "Caf\u00e9 Acme"
+      }
+    },
+    {
+      "id": "int-hash-stable",
+      "check": "content_hash",
+      "passed": true,
+      "detail": {
+        "left": "0953e79868560331189fe1b7294f5102efae1d65502189ee2f377fb9ec052e41",
+        "right": "0953e79868560331189fe1b7294f5102efae1d65502189ee2f377fb9ec052e41",
+        "equal": true
+      }
+    },
+    {
+      "id": "int-hash-edit",
+      "check": "content_hash",
+      "passed": true,
+      "detail": {
+        "left": "0953e79868560331189fe1b7294f5102efae1d65502189ee2f377fb9ec052e41",
+        "right": "bd0a78bd53c911ebfe583f7678b961999fa3e0891f1e8c74a3f011e905994868",
+        "equal": false
+      }
+    },
+    {
+      "id": "int-hash-unicode-cafe",
+      "check": "content_hash",
+      "passed": true,
+      "detail": {
+        "left": "73473dcc12b763085904a5279d048c4d5b3b008c46f1f32443b99de04aa83a14",
+        "right": "0d5f2e74a9f6051f1f824b59c8caf16cebd1eb2ebb12a2c6e32097fdd8de53d5",
+        "equal": false
+      }
+    },
+    {
+      "id": "int-hash-nfc-nfd",
+      "check": "nfc_nfd_hash",
+      "passed": true,
+      "detail": {
+        "nfc": "Caf\u00e9",
+        "nfd": "Cafe\u0301",
+        "nfc_hash": "73473dcc12b763085904a5279d048c4d5b3b008c46f1f32443b99de04aa83a14",
+        "nfd_hash": "c42cc7a1ca08364b6fd859fa50d2454730a8236290a423373cc630da77c6d711",
+        "nfc_len": 4,
+        "nfd_len": 5,
+        "locate_nfd_with_nfc": "missing"
+      }
+    },
+    {
+      "id": "int-unicode-offsets",
+      "check": "unicode_offsets",
+      "passed": true,
+      "detail": {
+        "status": "unique",
+        "start": 22,
+        "end": 31,
+        "hash": "55a3dc2f108c69929327ca6d75ed59f78c1883e89601d800a89ab5c1b16fc055"
+      }
+    },
+    {
+      "id": "int-cjk-offsets",
+      "check": "unicode_offsets",
+      "passed": true,
+      "detail": {
+        "status": "unique",
+        "start": 0,
+        "end": 11,
+        "hash": "a05d1b8d27d2fecf49c97ec6c3075468985a8c7408643f0997ea8d86f4e1aeb2"
+      }
+    },
+    {
+      "id": "int-emoji-offsets",
+      "check": "unicode_offsets",
+      "passed": true,
+      "detail": {
+        "status": "unique",
+        "start": 19,
+        "end": 25,
+        "hash": "077b974b9283622ccdd1d01a03830f1d8f80e839a6a1bef91df643dab79718d1"
+      }
+    },
+    {
+      "id": "int-apply-unique",
+      "check": "apply_span_at",
+      "passed": true,
+      "detail": {
+        "error": null,
+        "result": "Python and FastAPI engineer at Acme."
+      }
+    },
+    {
+      "id": "int-stale-apply",
+      "check": "apply_span_at",
+      "passed": true,
+      "detail": {
+        "error": "span no longer matches the bound source version",
+        "result": null
+      }
+    },
+    {
+      "id": "int-apply-then-stale",
+      "check": "apply_then_stale",
+      "passed": true,
+      "detail": {
+        "original_hash": "0953e79868560331189fe1b7294f5102efae1d65502189ee2f377fb9ec052e41",
+        "edited_hash": "bd0a78bd53c911ebfe583f7678b961999fa3e0891f1e8c74a3f011e905994868",
+        "stale_apply_rejected": true
+      }
+    },
+    {
+      "id": "int-overlap-conflicts",
+      "check": "resolve_conflicts",
+      "passed": false,
+      "detail": {
+        "kinds": [
+          "unsupported",
+          "supported_rewrite"
+        ],
+        "rationales": [
+          "Invented responsibility or achievement is not present in the resume: python, services.",
+          "eval"
+        ]
+      }
+    },
+    {
+      "id": "int-duplicate-span",
+      "check": "resolve_conflicts",
+      "passed": true,
+      "detail": {
+        "kinds": [
+          "supported_rewrite",
+          "unsupported"
+        ],
+        "rationales": [
+          "eval",
+          "Conflicting rewrite (duplicate span); not applied automatically."
+        ]
+      }
+    },
+    {
+      "id": "int-nonoverlap-ok",
+      "check": "resolve_conflicts",
+      "passed": false,
+      "detail": {
+        "kinds": [
+          "unsupported",
+          "supported_rewrite"
+        ],
+        "rationales": [
+          "Invented responsibility or achievement is not present in the resume: python, services.",
+          "eval"
+        ]
+      }
+    },
+    {
+      "id": "int-repeated-substring-unique-context",
+      "check": "locate_span",
+      "passed": true,
+      "detail": {
+        "status": "unique",
+        "start": 32,
+        "end": 59,
+        "exact": "FastAPI services in Python."
+      }
+    }
+  ]
+}
