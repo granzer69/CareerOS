@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, UploadFile, status
+from fastapi import APIRouter, Depends, Form, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import DomainError, domain_error_to_http_exception, internal_error_to_http_exception
@@ -119,11 +119,13 @@ async def generate_resume_edits(
     analysis_id: UUID,
     service: Annotated[EditService, Depends(get_edit_service)],
     current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+    source_version_id: Annotated[UUID | None, Query()] = None,
 ) -> list[ResumeEditRead]:
     try:
         return await service.generate_edits(
             user_id=current_user_id,
             analysis_id=analysis_id,
+            source_version_id=source_version_id,
         )
     except DomainError as exc:
         raise domain_error_to_http_exception(exc) from exc
@@ -202,6 +204,54 @@ async def accept_resume_edit(
         raise domain_error_to_http_exception(exc) from exc
     except Exception as exc:
         logger.exception("Accepting resume edit failed")
+        raise internal_error_to_http_exception() from exc
+
+
+@router.post(
+    "/analyses/{analysis_id}/restore-original",
+    response_model=ResumeVersionRead,
+    status_code=status.HTTP_200_OK,
+    summary="Create a new version from the immutable original resume",
+)
+async def restore_original_resume(
+    analysis_id: UUID,
+    service: Annotated[EditService, Depends(get_edit_service)],
+    current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> ResumeVersionRead:
+    try:
+        return await service.restore_original(
+            user_id=current_user_id,
+            analysis_id=analysis_id,
+        )
+    except DomainError as exc:
+        raise domain_error_to_http_exception(exc) from exc
+    except Exception as exc:
+        logger.exception("Restoring original resume failed")
+        raise internal_error_to_http_exception() from exc
+
+
+@router.post(
+    "/analyses/{analysis_id}/versions/{version_id}/restore",
+    response_model=ResumeVersionRead,
+    status_code=status.HTTP_200_OK,
+    summary="Create a new version that copies an earlier snapshot",
+)
+async def restore_resume_version(
+    analysis_id: UUID,
+    version_id: UUID,
+    service: Annotated[EditService, Depends(get_edit_service)],
+    current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> ResumeVersionRead:
+    try:
+        return await service.restore_version(
+            user_id=current_user_id,
+            analysis_id=analysis_id,
+            version_id=version_id,
+        )
+    except DomainError as exc:
+        raise domain_error_to_http_exception(exc) from exc
+    except Exception as exc:
+        logger.exception("Restoring resume version failed")
         raise internal_error_to_http_exception() from exc
 
 

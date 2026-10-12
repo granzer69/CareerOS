@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.evidence import EligibilityItem, RequirementMatch
 
-EditKind = Literal["supported_rewrite", "missing_qualification", "unsupported"]
+EditKind = Literal["supported_rewrite", "missing_qualification", "unsupported", "needs_evidence"]
 EditStatus = Literal["pending", "accepted", "rejected"]
 
 
@@ -32,10 +32,14 @@ class ModelEditBatch(BaseModel):
 
 
 class ResumeEditRead(BaseModel):
-    """Reviewable edit suggestion. Original analysis resume_text is never mutated."""
+    """Reviewable edit suggestion bound to a source version. Original analysis text is never mutated."""
 
     id: UUID
     analysis_id: UUID
+    batch_id: UUID | None = None
+    source_version_id: UUID | None = None
+    source_version_number: int = 0
+    source_content_hash: str = ""
     kind: EditKind
     status: EditStatus
     original_span: str | None = None
@@ -43,6 +47,8 @@ class ResumeEditRead(BaseModel):
     evidence_span: str | None = None
     requirement_id: str | None = None
     rationale: str
+    span_start: int | None = None
+    span_end: int | None = None
     created_at: datetime
     reviewed_at: datetime | None = None
 
@@ -53,11 +59,12 @@ class ResumeEditRead(BaseModel):
 
 
 class ResumeVersionSummary(BaseModel):
-    """Owner-scoped list item for an accepted resume version."""
+    """Owner-scoped list item for an accepted resume version. Omits resume_text."""
 
     id: UUID
     analysis_id: UUID
     version_number: int
+    content_hash: str | None = None
     overall_score: int | None = None
     grade: str | None = None
     created_at: datetime
@@ -69,13 +76,19 @@ class ResumeVersionSummary(BaseModel):
 
 
 class ResumeVersionRead(BaseModel):
-    """Accepted working copy with rubric scores recomputed from the same JD."""
+    """
+    Accepted working copy with rubric scores recomputed from the same JD.
+
+    resume_text is included intentionally on this owner-only detail resource so the
+    accepted working copy can be reviewed. Analysis GET and version list omit it.
+    """
 
     id: UUID
     analysis_id: UUID
     version_number: int
     resume_text: str
-    applied_edit_ids: list[UUID] = Field(default_factory=list)
+    content_hash: str = ""
+    applied_edit_ids: list[str] = Field(default_factory=list)
     overall_score: int | None = None
     grade: str | None = None
     ats_score: int | None = None

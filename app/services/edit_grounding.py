@@ -1,14 +1,32 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from app.schemas.evidence import RequirementMatch
 from app.schemas.resume_edit import EditKind, ModelEditProposal
 
-_TOKEN_RE = re.compile(r"[a-z0-9+#.]{3,}")
-_NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?%?")
-_STOPWORDS = {
+SpanStatus = Literal["missing", "ambiguous", "unique"]
+
+_TOKEN_RE = re.compile(r"[a-z0-9+#.]{2,}")
+_NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?(?:\s*%|\s*k\b|\s*m\b|\s*b\b)?", re.IGNORECASE)
+_YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
+_SHORT_SKILL_RE = re.compile(
+    r"(?i)(?<![a-z0-9+])(c\+\+|c#|\.net|k8s|aws|gcp|sql|golang|(?<![a-z])go(?![a-z])|(?<![a-z])r(?![a-z])|(?<![a-z])c(?![a-z+#]))(?![a-z0-9+#])"
+)
+_PROPER_NOUN_RE = re.compile(r"\b(?:at|from|for|with)\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*)")
+_CAPITALIZED_RE = re.compile(r"\b[A-Z][A-Za-z0-9&.\-]{1,}\b")
+
+_GLUE = {
+    "a",
+    "an",
+    "at",
+    "to",
+    "of",
+    "in",
+    "on",
     "and",
     "the",
     "for",
@@ -19,83 +37,265 @@ _STOPWORDS = {
     "have",
     "has",
     "are",
+    "was",
+    "were",
     "ability",
     "strong",
     "using",
+    "used",
+    "use",
     "from",
     "this",
     "that",
+    "who",
+    "via",
+    "into",
+    "onto",
+    "over",
+    "across",
+    "including",
+    "include",
+    "based",
+    "role",
+    "team",
+    "work",
+    "working",
+    "worked",
+    "plus",
+    "also",
+    "both",
+    "their",
+    "its",
+    "his",
+    "her",
+    "application",
+    "applications",
+    "system",
+    "systems",
+    "service",
+    "services",
+    "project",
+    "projects",
+    "software",
+    "technical",
+    "professional",
+    "summary",
+    "profile",
+    "position",
     "required",
     "preferred",
     "experience",
     "minimum",
     "supply",
     "evidence",
+    "candidate",
 }
+
+_TITLE_TOKENS = {
+    "senior",
+    "junior",
+    "staff",
+    "principal",
+    "director",
+    "manager",
+    "intern",
+    "lead",
+    "head",
+    "chief",
+    "founder",
+    "vp",
+    "vice",
+    "president",
+    "architect",
+}
+
+_INTENSIFIERS = {
+    "expert",
+    "expertise",
+    "native",
+    "fluent",
+    "exceptional",
+    "outstanding",
+    "extensive",
+    "proven",
+    "world-class",
+    "worldclass",
+    "unmatched",
+    "ninja",
+    "guru",
+    "10x",
+    "seasoned",
+    "accomplished",
+}
+
+_OWNERSHIP_VERBS = {
+    "owned",
+    "led",
+    "managed",
+    "architected",
+    "founded",
+    "directed",
+    "spearheaded",
+    "pioneered",
+}
+
+_MONTHS = {
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+}
+
+_MIN_SPAN_LENGTH = 8
+
+
+def content_hash(text: str) -> str:
+    """Stable SHA-256 of resume text used to bind edits to a source version."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def normalize(text: str) -> str:
-    """Collapse whitespace and lowercase for span matching."""
+    """Collapse whitespace and lowercase for comparison."""
     return re.sub(r"\s+", " ", text.lower()).strip()
 
 
 def tokens(text: str) -> list[str]:
-    """Lexical tokens used for grounding checks."""
-    return [
-        token
-        for token in _TOKEN_RE.findall(normalize(text))
-        if token not in _STOPWORDS
-    ]
+    """Lexical tokens, including 2-character tokens needed for short skills."""
+    return [token for token in _TOKEN_RE.findall(normalize(text)) if token not in _GLUE]
 
 
 def numbers(text: str) -> set[str]:
-    """Digit sequences (including percents) treated as factual metrics."""
-    return {match.group(0).lower() for match in _NUMBER_RE.finditer(text)}
+    """Digit sequences, percents, and abbreviated magnitudes treated as metrics."""
+    found: set[str] = set()
+    for match in _NUMBER_RE.finditer(text):
+        found.add(re.sub(r"\s+", "", match.group(0).lower()))
+    return found
 
 
-def find_span(resume_text: str, span: str) -> str | None:
-    """Return the resume slice matching span, case-insensitive, or None."""
-    if not span.strip():
-        return None
-    exact = resume_text.find(span)
-    if exact >= 0:
-        return resume_text[exact : exact + len(span)]
-    lowered = resume_text.lower()
-    needle = span.lower()
-    index = lowered.find(needle)
-    if index < 0:
-        return None
-    return resume_text[index : index + len(span)]
+def short_skills(text: str) -> set[str]:
+    """Extract short technical skills that a 3+ char tokenizer would miss."""
+    found: set[str] = set()
+    for match in _SHORT_SKILL_RE.finditer(text):
+        found.add(match.group(1).lower())
+    lowered = f" {normalize(text)} "
+    for skill in ("c++", "c#", ".net", "go", "golang", "k8s", "aws", "gcp", "sql"):
+        if f" {skill} " in lowered or lowered.strip() == skill:
+            found.add(skill)
+    if re.search(r"(?<![a-z])r(?![a-z])", normalize(text)):
+        found.add("r")
+    if re.search(r"(?<![a-z])c(?![a-z+#])", normalize(text)):
+        found.add("c")
+    return found
 
 
-def apply_span_replacement(*, resume_text: str, original_span: str, proposed_text: str) -> str:
-    """Replace one identifiable span. Raises ValueError if the span is missing."""
-    found = find_span(resume_text, original_span)
-    if found is None:
-        raise ValueError("original_span is not present in the resume")
-    index = resume_text.find(found)
-    return resume_text[:index] + proposed_text + resume_text[index + len(found) :]
-
-
-def _forbidden_tokens(matches: list[RequirementMatch], resume_text: str) -> set[str]:
-    resume_tokens = set(tokens(resume_text))
-    forbidden: set[str] = set()
-    for match in matches:
-        if match.evidence_state not in {"not_found", "contradicted"}:
+def _proper_nouns(text: str) -> set[str]:
+    found: set[str] = set()
+    for match in _PROPER_NOUN_RE.finditer(text):
+        found.add(normalize(match.group(1)))
+    words = text.split()
+    for index, word in enumerate(words):
+        if index == 0:
             continue
-        for token in tokens(match.text):
-            if token not in resume_tokens:
-                forbidden.add(token)
-    return forbidden
+        cleaned = re.sub(r"[^A-Za-z0-9&.+\-#]", "", word)
+        if _CAPITALIZED_RE.fullmatch(cleaned) and normalize(cleaned) not in _GLUE:
+            found.add(normalize(cleaned))
+    return found
 
 
-def _match_by_id(matches: list[RequirementMatch], requirement_id: str | None) -> RequirementMatch | None:
-    if not requirement_id:
-        return None
-    for match in matches:
-        if match.id == requirement_id:
-            return match
-    return None
+def _title_tokens(text: str) -> set[str]:
+    return {token for token in tokens(text) if token in _TITLE_TOKENS}
+
+
+def _months(text: str) -> set[str]:
+    return {token for token in tokens(text) if token in _MONTHS}
+
+
+def _years(text: str) -> set[str]:
+    return {match.group(0) for match in _YEAR_RE.finditer(text)}
+
+
+def _intensifiers(text: str) -> set[str]:
+    lowered = normalize(text)
+    return {word for word in _INTENSIFIERS if word in lowered.split() or word in lowered}
+
+
+def _ownership_verbs(text: str) -> set[str]:
+    return {token for token in tokens(text) if token in _OWNERSHIP_VERBS}
+
+
+@dataclass(frozen=True)
+class SpanLocation:
+    status: SpanStatus
+    start: int | None = None
+    end: int | None = None
+    exact: str | None = None
+
+
+def _find_all(haystack: str, needle: str) -> list[int]:
+    hits: list[int] = []
+    start = 0
+    while True:
+        index = haystack.find(needle, start)
+        if index < 0:
+            return hits
+        hits.append(index)
+        start = index + 1
+
+
+def locate_span(resume_text: str, span: str) -> SpanLocation:
+    """Locate span in resume text. Ambiguous if more than one occurrence."""
+    stripped = span.strip()
+    if not stripped:
+        return SpanLocation(status="missing")
+    exact_hits = _find_all(resume_text, stripped)
+    if len(exact_hits) == 1:
+        start = exact_hits[0]
+        return SpanLocation(
+            status="unique",
+            start=start,
+            end=start + len(stripped),
+            exact=resume_text[start : start + len(stripped)],
+        )
+    if len(exact_hits) > 1:
+        return SpanLocation(status="ambiguous")
+    lowered_hits = _find_all(resume_text.lower(), stripped.lower())
+    if len(lowered_hits) == 1:
+        start = lowered_hits[0]
+        exact = resume_text[start : start + len(stripped)]
+        return SpanLocation(status="unique", start=start, end=start + len(stripped), exact=exact)
+    if len(lowered_hits) > 1:
+        return SpanLocation(status="ambiguous")
+    return SpanLocation(status="missing")
+
+
+def ranges_overlap(left: tuple[int, int], right: tuple[int, int]) -> bool:
+    """True if two half-open [start, end) ranges overlap."""
+    return left[0] < right[1] and right[0] < left[1]
+
+
+def apply_span_at(
+    *,
+    resume_text: str,
+    start: int,
+    end: int,
+    expected_span: str,
+    proposed_text: str,
+) -> str:
+    """Replace exactly the bound [start, end) slice. Raises ValueError if stale or ambiguous."""
+    if start < 0 or end > len(resume_text) or start >= end:
+        raise ValueError("span offsets are not valid")
+    actual = resume_text[start:end]
+    if actual != expected_span:
+        raise ValueError("span no longer matches the bound source version")
+    return resume_text[:start] + proposed_text + resume_text[end:]
 
 
 @dataclass(frozen=True)
@@ -106,6 +306,48 @@ class ClassifiedProposal:
     evidence_span: str | None
     requirement_id: str | None
     rationale: str
+    span_start: int | None = None
+    span_end: int | None = None
+
+
+def _unsupported(
+    *,
+    original: str | None,
+    proposed: str,
+    found: str | None,
+    requirement_id: str | None,
+    rationale: str,
+    start: int | None = None,
+    end: int | None = None,
+) -> ClassifiedProposal:
+    return ClassifiedProposal(
+        kind="unsupported",
+        original_span=original,
+        proposed_text=proposed,
+        evidence_span=found,
+        requirement_id=requirement_id,
+        rationale=rationale,
+        span_start=start,
+        span_end=end,
+    )
+
+
+def _needs_evidence(
+    *,
+    original: str | None,
+    proposed: str,
+    found: str | None,
+    requirement_id: str | None,
+    rationale: str,
+) -> ClassifiedProposal:
+    return ClassifiedProposal(
+        kind="needs_evidence",
+        original_span=original,
+        proposed_text=proposed,
+        evidence_span=found,
+        requirement_id=requirement_id,
+        rationale=rationale,
+    )
 
 
 def classify_proposal(
@@ -115,39 +357,135 @@ def classify_proposal(
     matches: list[RequirementMatch],
 ) -> ClassifiedProposal:
     """
-    Map a model proposal onto supported / missing / unsupported using resume evidence.
+    Classify a model proposal using deterministic evidence checks.
 
-    The model never has the last word: fabricated metrics and JD-only skills are unsupported.
+    The model never assigns kind. Unverifiable claims are needs_evidence or unsupported.
     """
     original = proposal.original_span.strip()
     proposed = proposal.proposed_text.strip()
-    found = find_span(resume_text, original)
-    extra_numbers = numbers(proposed) - numbers(resume_text)
+    location = locate_span(resume_text, original)
+    found = location.exact
+    resume_norm = normalize(resume_text)
+    resume_token_set = set(tokens(resume_text))
+    resume_skills = short_skills(resume_text)
+    resume_nouns = _proper_nouns(resume_text) | {normalize(part) for part in resume_text.split() if part}
+    resume_titles = _title_tokens(resume_text)
+    resume_months = _months(resume_text)
+    resume_years = _years(resume_text)
+    resume_numbers = numbers(resume_text)
+    resume_verbs = _ownership_verbs(resume_text)
+
+    extra_numbers = numbers(proposed) - resume_numbers
     if extra_numbers:
-        return ClassifiedProposal(
-            kind="unsupported",
-            original_span=original,
-            proposed_text=proposed,
-            evidence_span=found,
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
             requirement_id=proposal.requirement_id,
             rationale="Fabricated metric(s) are not present in the resume: "
             + ", ".join(sorted(extra_numbers)),
+            start=location.start,
+            end=location.end,
         )
 
-    stolen = [token for token in tokens(proposed) if token in _forbidden_tokens(matches, resume_text)]
-    if stolen:
-        unique = ", ".join(sorted(set(stolen)))
-        return ClassifiedProposal(
-            kind="unsupported",
-            original_span=original,
-            proposed_text=proposed,
-            evidence_span=found,
+    extra_years = _years(proposed) - resume_years
+    extra_months = _months(proposed) - resume_months
+    if extra_years or extra_months:
+        invented = ", ".join(sorted(extra_years | extra_months))
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
             requirement_id=proposal.requirement_id,
-            rationale=f"Unsupported skill(s) are not demonstrated in the resume: {unique}",
+            rationale=f"Date(s) are not present in the resume: {invented}",
+            start=location.start,
+            end=location.end,
         )
 
-    linked = _match_by_id(matches, proposal.requirement_id)
-    if linked is not None and linked.evidence_state == "not_found" and found is None:
+    extra_skills = short_skills(proposed) - resume_skills
+    if extra_skills:
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
+            requirement_id=proposal.requirement_id,
+            rationale="Unsupported skill(s) are not demonstrated in the resume: "
+            + ", ".join(sorted(extra_skills)),
+            start=location.start,
+            end=location.end,
+        )
+
+    extra_titles = _title_tokens(proposed) - resume_titles
+    if extra_titles:
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
+            requirement_id=proposal.requirement_id,
+            rationale="Invented job title(s) are not present in the resume: "
+            + ", ".join(sorted(extra_titles)),
+            start=location.start,
+            end=location.end,
+        )
+
+    extra_nouns: list[str] = []
+    for noun in _proper_nouns(proposed):
+        if noun in resume_norm or noun in resume_nouns:
+            continue
+        extra_nouns.append(noun)
+    if extra_nouns:
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
+            requirement_id=proposal.requirement_id,
+            rationale="Invented employer or proper noun(s) are not present in the resume: "
+            + ", ".join(sorted(set(extra_nouns))),
+            start=location.start,
+            end=location.end,
+        )
+
+    extra_content = [
+        token
+        for token in tokens(proposed)
+        if token not in resume_token_set
+        and token not in resume_skills
+        and token not in _GLUE
+        and token not in _INTENSIFIERS
+        and token not in _OWNERSHIP_VERBS
+        and token not in _TITLE_TOKENS
+    ]
+    if extra_content:
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=found,
+            requirement_id=proposal.requirement_id,
+            rationale="Invented responsibility or achievement is not present in the resume: "
+            + ", ".join(sorted(set(extra_content))),
+            start=location.start,
+            end=location.end,
+        )
+
+    extra_verbs = _ownership_verbs(proposed) - resume_verbs
+    extra_intensity = _intensifiers(proposed) - _intensifiers(resume_text)
+    if extra_verbs or extra_intensity:
+        labels = sorted(extra_verbs | extra_intensity)
+        return _needs_evidence(
+            original=original,
+            proposed=proposed,
+            found=found,
+            requirement_id=proposal.requirement_id,
+            rationale="Claim is ambiguous without additional evidence: " + ", ".join(labels),
+        )
+
+    linked = None
+    if proposal.requirement_id:
+        for match in matches:
+            if match.id == proposal.requirement_id:
+                linked = match
+                break
+    if linked is not None and linked.evidence_state == "not_found" and location.status != "unique":
         return ClassifiedProposal(
             kind="missing_qualification",
             original_span=None,
@@ -157,28 +495,87 @@ def classify_proposal(
             rationale="This qualification is not in the resume. The candidate must supply evidence.",
         )
 
-    if found is None:
-        return ClassifiedProposal(
-            kind="unsupported",
-            original_span=original,
-            proposed_text=proposed,
-            evidence_span=None,
+    if location.status == "missing":
+        return _unsupported(
+            original=original,
+            proposed=proposed,
+            found=None,
             requirement_id=proposal.requirement_id,
             rationale="original_span is not identifiable in the supplied resume.",
+        )
+    if location.status == "ambiguous":
+        return _needs_evidence(
+            original=original,
+            proposed=proposed,
+            found=None,
+            requirement_id=proposal.requirement_id,
+            rationale="original_span matches more than one location; refusing first-occurrence replacement.",
+        )
+    if location.start is None or location.end is None or location.exact is None:
+        return _needs_evidence(
+            original=original,
+            proposed=proposed,
+            found=None,
+            requirement_id=proposal.requirement_id,
+            rationale="original_span could not be bound to a unique offset.",
+        )
+    if (location.end - location.start) < _MIN_SPAN_LENGTH:
+        return _needs_evidence(
+            original=location.exact,
+            proposed=proposed,
+            found=location.exact,
+            requirement_id=proposal.requirement_id,
+            rationale="original_span is too short to apply safely.",
         )
 
     return ClassifiedProposal(
         kind="supported_rewrite",
-        original_span=found,
+        original_span=location.exact,
         proposed_text=proposed,
-        evidence_span=found,
+        evidence_span=location.exact,
         requirement_id=proposal.requirement_id,
         rationale=proposal.rationale,
+        span_start=location.start,
+        span_end=location.end,
     )
 
 
+def resolve_span_conflicts(classified: list[ClassifiedProposal]) -> list[ClassifiedProposal]:
+    """Downgrade overlapping or duplicate supported rewrites in a batch."""
+    resolved: list[ClassifiedProposal] = []
+    claimed: list[tuple[int, int]] = []
+    for item in classified:
+        if item.kind != "supported_rewrite" or item.span_start is None or item.span_end is None:
+            resolved.append(item)
+            continue
+        current = (item.span_start, item.span_end)
+        conflict = next((existing for existing in claimed if ranges_overlap(existing, current)), None)
+        if conflict is not None:
+            reason = (
+                "duplicate span"
+                if conflict == current
+                else "overlapping span"
+            )
+            resolved.append(
+                ClassifiedProposal(
+                    kind="unsupported",
+                    original_span=item.original_span,
+                    proposed_text=item.proposed_text,
+                    evidence_span=item.evidence_span,
+                    requirement_id=item.requirement_id,
+                    rationale=f"Conflicting rewrite ({reason}); not applied automatically.",
+                    span_start=item.span_start,
+                    span_end=item.span_end,
+                )
+            )
+            continue
+        claimed.append(current)
+        resolved.append(item)
+    return resolved
+
+
 def missing_qualification_proposals(matches: list[RequirementMatch]) -> list[ClassifiedProposal]:
-    """Deterministic flags for mandatory requirements with no resume evidence."""
+    """Deterministic flags for requirements with no resume evidence."""
     proposals: list[ClassifiedProposal] = []
     seen: set[str] = set()
     for match in matches:
