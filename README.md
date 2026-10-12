@@ -71,7 +71,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 1. Copy `.env.example` → `.env` (set DB URL, JWT secret, CORS origins).
 2. `pip install -r requirements.txt`
-3. `alembic upgrade head`
+3. PostgreSQL: `alembic upgrade head`. Local sqlite: `python scripts/init_db.py` (Alembic revisions use Postgres types such as JSONB).
 4. Optional, only on a machine that will run analysis:
    - download a GGUF **outside** the request path
    - `pip install -r requirements-local-inference.txt`
