@@ -11,6 +11,7 @@ from pathlib import Path
 
 load_dotenv()  # Load .env before anything else
 
+from app.ai.local_inference import LocalModelNotFoundError, require_local_model_file
 from app.api.routes.auth import router as auth_router
 from app.api.routes.resume import router as resume_router
 from app.api.routes.roadmap import router as roadmap_router
@@ -41,17 +42,37 @@ app.include_router(roadmap_router, prefix="/api/v1")
 app.include_router(user_profile_router, prefix="/api/v1")
 
 
+def _local_model_status() -> str:
+    """Report whether a GGUF file is configured. Does not load llama.cpp or download weights."""
+    try:
+        require_local_model_file(settings.LOCAL_MODEL_PATH)
+        return "configured"
+    except LocalModelNotFoundError:
+        return "missing"
+
+
 @app.get("/health", tags=["health"])
 async def health_check() -> JSONResponse:
-    """Health check used by Render; verifies database connectivity."""
+    """Health check used by Render; verifies database connectivity and model-file presence."""
+    model_status = _local_model_status()
     try:
         await verify_database_connection()
-        return JSONResponse({"status": "ok", "database": "connected"})
+        return JSONResponse(
+            {
+                "status": "ok",
+                "database": "connected",
+                "local_model": model_status,
+            }
+        )
     except Exception as exc:
         logger.exception("Health check failed")
         return JSONResponse(
             status_code=503,
-            content={"status": "degraded", "database": "disconnected"},
+            content={
+                "status": "degraded",
+                "database": "disconnected",
+                "local_model": model_status,
+            },
         )
 
 

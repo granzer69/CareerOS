@@ -10,13 +10,18 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.resume import router as resume_router
 from app.core.auth import create_access_token, get_current_user_id
 from app.core.database import get_db_session
 from app.main import app
-from app.services.resume_service import ResumeAnalysisNotFoundError, ResumeService
+from app.services.resume_service import (
+    ResumeAnalysisNotFoundError,
+    ResumeSchemaOutdatedError,
+    ResumeService,
+)
 
 OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 OTHER_ID = UUID("00000000-0000-0000-0000-000000000002")
@@ -352,3 +357,36 @@ def test_list_does_not_include_other_users_rows(
     assert "resume_analyses.user_id" in sql
     assert OWNER_ID.hex in sql
     assert OTHER_ID.hex not in sql
+
+
+@pytest.mark.asyncio
+async def test_list_analyses_maps_missing_user_id_column_to_schema_outdated(
+    db_session_mock: AsyncSession,
+    current_user_id: UUID,
+) -> None:
+    """Stale sqlite without user_id is schema_outdated, not an unhandled 500."""
+    db_session_mock.execute.side_effect = OperationalError(
+        "SELECT",
+        {},
+        Exception("no such column: resume_analyses.user_id"),
+    )
+    service = ResumeService(db_session=db_session_mock)
+    with pytest.raises(ResumeSchemaOutdatedError) as exc:
+        await service.list_analyses_for_user(user_id=current_user_id)
+    assert exc.value.code == "schema_outdated"
+    assert exc.value.http_status == 503
+
+
+def test_list_route_returns_503_schema_outdated(
+    resume_client: TestClient,
+    db_session_mock: AsyncSession,
+) -> None:
+    """History list surfaces schema_outdated instead of Internal server error."""
+    db_session_mock.execute.side_effect = OperationalError(
+        "SELECT",
+        {},
+        Exception("no such column: resume_analyses.user_id"),
+    )
+    response = resume_client.get("/resume/analyses")
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "schema_outdated"
