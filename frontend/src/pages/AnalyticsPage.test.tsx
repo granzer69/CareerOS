@@ -43,7 +43,8 @@ describe("AnalyticsPage", () => {
     expect(screen.getByText("not_found")).toBeInTheDocument();
     expect(screen.getAllByText("2").length).toBeGreaterThan(0);
     expect(screen.getByText("Kubernetes")).toBeInTheDocument();
-    expect(screen.getByText("Data Engineer")).toBeInTheDocument();
+    expect(screen.getAllByText("Data Engineer").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getByRole("img", { name: /application-readiness trend/i })).toBeInTheDocument();
     const text = document.body.textContent?.toLowerCase() ?? "";
     expect(text).toContain("not a hiring probability");

@@ -15,7 +15,7 @@ describe("EvidenceMixChart", () => {
     expect(screen.getByText("not_found")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Count" })).toBeInTheDocument();
     expect(screen.getByLabelText(/n=3/i)).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getAllByText("2").length).toBeGreaterThan(0);
   });
 
   it("shows an empty caption when requirement_matches would be empty", () => {
