@@ -1,0 +1,24 @@
+---
+name: CareerOS frontend skills
+description: Load CareerOS frontend skills when editing the copilot UI, frontend tests, or frontend build scripts.
+globs:
+  - frontend/**/*.ts
+  - frontend/**/*.tsx
+  - frontend/**/*.css
+  - frontend/**/*.mjs
+  - frontend/**/*.html
+  - tests/test_frontend_source.py
+alwaysApply: false
+---
+
+When editing CareerOS frontend, read the matching skill under `.cursor/skills/` before coding:
+
+- `careeros-frontend-contract` — API, JWT, score labels, forbidden copy (always)
+- `careeros-design-system` — components, tokens, layout, CSS
+- `frontend-a11y` — forms, tables, charts, dialogs, banners
+- `frontend-test` — Vitest / Testing Library / Playwright (not the pytest test-writer)
+- `careeros-honest-analytics` — dashboards, charts, KPIs, insights
+- `careeros-figma` — Figma library, design, or design-to-code
+- `careeros-telemetry` — tracking SDKs, PostHog/Mixpanel/GA, outcome tracking
+
+Do not patch `frontend/dist`. Do not add hosted LLM clients. Do not show hiring probability.

@@ -7,6 +7,7 @@ from uuid import UUID
 from docx import Document as DocxDocument
 from PyPDF2 import PdfReader
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
@@ -58,6 +59,25 @@ class ResumeAnalysisNotFoundError(DomainError):
 
 class ResumeJobDescriptionError(DomainError):
     """Raised when the job description is missing, empty, or too long."""
+
+
+class ResumeSchemaOutdatedError(DomainError):
+    """Raised when the database is missing required resume_analyses columns."""
+
+
+def _raise_if_schema_outdated(exc: Exception) -> None:
+    """Map missing-column driver errors to an actionable schema_outdated failure."""
+    message = str(exc).lower()
+    if "no such column" in message or "does not exist" in message:
+        raise ResumeSchemaOutdatedError(
+            detail=(
+                "The database schema is behind Alembic. Stop the API, delete any leftover "
+                "local sqlite file, then run `alembic upgrade head`. create_all does not "
+                "add columns to existing tables."
+            ),
+            code="schema_outdated",
+            http_status=503,
+        ) from exc
 
 
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -239,7 +259,11 @@ class ResumeService:
             .order_by(ResumeAnalysis.created_at.desc())
             .limit(100)
         )
-        result = await self._db_session.execute(stmt)
+        try:
+            result = await self._db_session.execute(stmt)
+        except (OperationalError, ProgrammingError) as exc:
+            _raise_if_schema_outdated(exc)
+            raise
         rows = result.scalars().all()
         return [ResumeAnalysisSummary.model_validate(row) for row in rows]
 
@@ -258,7 +282,11 @@ class ResumeService:
             ResumeAnalysis.id == analysis_id,
             ResumeAnalysis.user_id == user_id,
         )
-        result = await self._db_session.execute(stmt)
+        try:
+            result = await self._db_session.execute(stmt)
+        except (OperationalError, ProgrammingError) as exc:
+            _raise_if_schema_outdated(exc)
+            raise
         record = result.scalar_one_or_none()
         if record is None:
             raise ResumeAnalysisNotFoundError(

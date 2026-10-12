@@ -10,6 +10,7 @@ from app.main import app
 
 
 def test_register_login_and_protected_profile_route() -> None:
+    """Register, login, protect profile writes, and return empty owned history."""
     asyncio.run(initialize_database())
     email = f"deployment-{uuid4()}@example.com"
     password = "deployment-test-password"
@@ -51,3 +52,10 @@ def test_register_login_and_protected_profile_route() -> None:
             },
         )
         assert profile_response.status_code == 201
+
+        history_response = client.get(
+            "/api/v1/resume/analyses",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert history_response.status_code == 200
+        assert history_response.json() == []

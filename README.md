@@ -8,7 +8,7 @@ FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and P
 
 CareerOS helps a user upload a resume, paste a job description, and receive three versioned scores: **job-fit**, **resume-alignment**, and **application-readiness**. A local GGUF model may extract extra JD requirements or propose span rewrites; it does not invent the final numbers. Profiles, analyses, edit suggestions, and accepted resume versions are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
 
-`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
+`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The frontend source in `frontend/src` is a signed-in copilot: register/login, upload a resume, paste a JD, inspect evidence and scores, and review grounded edits. Build it with `npm run build` in `frontend/`. Do not hand-edit `frontend/dist`.
 
 If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze and edit generation return HTTP 503 `model_unavailable` and do not call a hosted provider.
 
@@ -71,15 +71,17 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 1. Copy `.env.example` → `.env` (set DB URL, JWT secret, CORS origins).
 2. `pip install -r requirements.txt`
-3. `alembic upgrade head`
+3. PostgreSQL: `alembic upgrade head`. Local sqlite: `python scripts/init_db.py` (Alembic revisions use Postgres types such as JSONB).
 4. Optional, only on a machine that will run analysis:
    - download a GGUF **outside** the request path
    - `pip install -r requirements-local-inference.txt`
    - set `LOCAL_MODEL_PATH` to that file
 5. `uvicorn app.main:app --reload`
-6. In `frontend`: set `BACKEND_URL`, then `npm run build`
+6. In `frontend`: `npm install && npm run build` (relative `/api` for local unified mode). For Vercel, set `BACKEND_URL` to the HTTPS API before `npm run build`.
 
 If `LOCAL_MODEL_PATH` is empty, the API still boots. Analyze returns `{"detail": {"detail": "Local model weights are not available", "code": "model_unavailable"}}`.
+
+If local sqlite was created before the current Alembic head, `alembic upgrade head` can fail with “table already exists” and history can return 503 `schema_outdated`. Delete the leftover `.db` file and run the upgrade again. `create_all` does not add columns such as `resume_analyses.user_id`.
 
 The default Render free instance does not have enough RAM for a GGUF. Leave `LOCAL_MODEL_PATH` empty there, or run inference on a host that can hold the file.
 
@@ -103,7 +105,6 @@ The Slice 5 pipeline benchmark lives at `evals/benchmark/v1.0.0/` (`n=14` matchi
 
 ## Future improvements
 
-- Slice 6: honest frontend from source (do not patch `frontend/dist`)
 - Flesh out roadmap / career-planning endpoints
 - Tighten production observability and rate limits
 - Clearer separation docs vs Range-Apply product surface
