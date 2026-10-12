@@ -243,14 +243,14 @@ class ResumeService:
         rows = result.scalars().all()
         return [ResumeAnalysisSummary.model_validate(row) for row in rows]
 
-    async def get_analysis_for_user(
+    async def get_owned_analysis_record(
         self,
         *,
         user_id: UUID,
         analysis_id: UUID,
-    ) -> ResumeAnalysisRead:
+    ) -> ResumeAnalysis:
         """
-        Return one owned analysis.
+        Return the owned ORM analysis row.
 
         Missing rows and another user's rows both raise the same not_found error.
         """
@@ -266,4 +266,17 @@ class ResumeService:
                 code="not_found",
                 http_status=404,
             )
+        return record
+
+    async def get_analysis_for_user(
+        self,
+        *,
+        user_id: UUID,
+        analysis_id: UUID,
+    ) -> ResumeAnalysisRead:
+        """Return one owned analysis without resume_text."""
+        record = await self.get_owned_analysis_record(
+            user_id=user_id,
+            analysis_id=analysis_id,
+        )
         return ResumeAnalysisRead.model_validate(record)

@@ -13,6 +13,7 @@ from app.core.database import _async_url, _connect_args
 from app.models.base import Base
 
 import app.models.resume_analysis  # noqa: F401
+import app.models.resume_edit  # noqa: F401
 import app.models.user  # noqa: F401
 import app.models.user_profile  # noqa: F401
 

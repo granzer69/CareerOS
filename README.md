@@ -6,9 +6,9 @@ FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and P
 
 ## Overview
 
-CareerOS helps a user upload a resume, paste a job description, and receive three versioned scores: **job-fit**, **resume-alignment**, and **application-readiness**. A local GGUF model may extract extra JD requirements; it does not invent the final numbers. Profiles and analysis rows are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
+CareerOS helps a user upload a resume, paste a job description, and receive three versioned scores: **job-fit**, **resume-alignment**, and **application-readiness**. A local GGUF model may extract extra JD requirements or propose span rewrites; it does not invent the final numbers. Profiles, analyses, edit suggestions, and accepted resume versions are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
 
-`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. `GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}` are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
+`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
 
 If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze returns HTTP 503 `model_unavailable` and does not call a hosted provider.
 
@@ -19,7 +19,8 @@ React frontend  →  FastAPI (JWT)  →  PostgreSQL
                          │
                          ├─ resume parse (PDF/DOCX)
                          ├─ deterministic JD split + evidence match + rubric v1.0.0
-                         └─ local GGUF adapter → ModelExtraction (no scores)
+                         ├─ evidence-grounded edit proposals + accepted resume versions
+                         └─ local GGUF adapter → ModelExtraction / ModelEditBatch (no scores)
 ```
 
 ## Tech stack
@@ -43,6 +44,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 - User profile CRUD (write paths)
 - Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match and rubric scoring → persisted `resume_analyses` owned by the authenticated user
 - User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
+- Evidence-grounded edit proposals (`POST/GET /api/v1/resume/analyses/{id}/edits`) with accept/reject. Original resume text is immutable. Accepted supported rewrites create a `resume_versions` row that is re-scored with rubric `v1.0.0`
 - Health endpoint and CORS configuration for split frontend/backend deploy
 - Alembic migrations for users, profiles, resume analyses
 - Unit / integration tests for auth and profile flows
@@ -59,7 +61,8 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 - **Missing weights fail closed**: analyze returns 503; `/health` and auth keep running
 - **Structured model output**: extraction JSON is validated with Pydantic (`extra=forbid`); numeric scores are rejected; malformed JSON triggers a bounded retry
 - **Deterministic scoring**: job-fit, alignment, and readiness come from rubric `v1.0.0`; `overall_score` is application-readiness; `ats_score` is terminology coverage, not a vendor ATS
-- **Prompt as file**: extraction prompt kept under `app/ai/prompts/` for inspectability
+- **Prompt as file**: extraction and edit prompts kept under `app/ai/prompts/` for inspectability
+- **Evidence-grounded edits**: fabricated metrics and JD-only skills are flagged `unsupported`; missing qualifications are not applied; only identifiable span rewrites can be accepted
 - **Migrations first**: schema changes via Alembic rather than ad-hoc create-all in production paths
 - **Split deploy**: API on Render, frontend on Vercel, with explicit `ALLOWED_ORIGINS` / `BACKEND_URL`
 
@@ -95,7 +98,6 @@ CI and default `pytest` mock the local adapter and must not download weights.
 
 ## Future improvements
 
-- Evidence-grounded resume edits
 - Flesh out roadmap / career-planning endpoints
 - Tighten production observability and rate limits
 - Clearer separation docs vs Range-Apply product surface

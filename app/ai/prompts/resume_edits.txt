@@ -1,0 +1,31 @@
+Propose resume span rewrites grounded ONLY in the resume text. Never invent skills, employers, dates, metrics, or achievements.
+
+Job title: {target_role}
+
+Job description:
+{job_description}
+
+Resume text:
+{resume_text}
+
+Known requirement matches (id and evidence state):
+{requirement_matches}
+
+Return ONLY JSON with this schema — no scores, no preamble:
+{{
+  "proposals": [
+    {{
+      "original_span": "exact substring copied from the resume",
+      "proposed_text": "rewritten substring using only resume facts",
+      "requirement_id": "req-id or null",
+      "rationale": "why this rewrite is clearer or more relevant"
+    }}
+  ]
+}}
+
+Rules:
+- original_span MUST be copied from the resume.
+- Do not add numbers, percentages, employers, or skills that are not in the resume.
+- Do not include overall_score, grade, or ats_score.
+- Prefer clarity/relevance rewrites of confirmed or partial evidence.
+- If a qualification is missing, do not invent it.
