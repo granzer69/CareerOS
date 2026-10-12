@@ -1,0 +1,1063 @@
+{
+  "version": "v1.0.0",
+  "ran_at": "2026-10-12T07:30:18Z",
+  "dataset": "evals/benchmark/v1.0.0/cases.json",
+  "inference": "none",
+  "matching": {
+    "extraction": {
+      "tp": 32,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "n_cases": 14
+    },
+    "n_labeled_states": 32,
+    "matchers": {
+      "lexical": {
+        "accuracy": 0.96875,
+        "macro_f1": 0.9840682788051209,
+        "per_state": {
+          "confirmed": {
+            "tp": 18,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.9473684210526315,
+            "recall": 1.0,
+            "f1": 0.972972972972973
+          },
+          "partial": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "not_found": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316
+          },
+          "contradicted": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "unknown": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "confusion": {
+          "confirmed": {
+            "confirmed": 18
+          },
+          "not_found": {
+            "not_found": 9,
+            "confirmed": 1
+          },
+          "contradicted": {
+            "contradicted": 2
+          },
+          "unknown": {
+            "unknown": 1
+          },
+          "partial": {
+            "partial": 1
+          }
+        },
+        "hard_negative_false_confirmed": 1,
+        "hard_negative_n": 3
+      },
+      "tfidf": {
+        "accuracy": 0.46875,
+        "macro_f1": 0.6096969696969696,
+        "per_state": {
+          "confirmed": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 16,
+            "precision": 1.0,
+            "recall": 0.1111111111111111,
+            "f1": 0.19999999999999998
+          },
+          "partial": {
+            "tp": 1,
+            "fp": 9,
+            "fn": 0,
+            "precision": 0.1,
+            "recall": 1.0,
+            "f1": 0.18181818181818182
+          },
+          "not_found": {
+            "tp": 9,
+            "fp": 8,
+            "fn": 1,
+            "precision": 0.5294117647058824,
+            "recall": 0.9,
+            "f1": 0.6666666666666667
+          },
+          "contradicted": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "unknown": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "confusion": {
+          "confirmed": {
+            "partial": 8,
+            "not_found": 8,
+            "confirmed": 2
+          },
+          "not_found": {
+            "not_found": 9,
+            "partial": 1
+          },
+          "contradicted": {
+            "contradicted": 2
+          },
+          "unknown": {
+            "unknown": 1
+          },
+          "partial": {
+            "partial": 1
+          }
+        },
+        "hard_negative_false_confirmed": 0,
+        "hard_negative_n": 3
+      },
+      "hybrid": {
+        "accuracy": 0.96875,
+        "macro_f1": 0.9840682788051209,
+        "per_state": {
+          "confirmed": {
+            "tp": 18,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.9473684210526315,
+            "recall": 1.0,
+            "f1": 0.972972972972973
+          },
+          "partial": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "not_found": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316
+          },
+          "contradicted": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "unknown": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "confusion": {
+          "confirmed": {
+            "confirmed": 18
+          },
+          "not_found": {
+            "not_found": 9,
+            "confirmed": 1
+          },
+          "contradicted": {
+            "contradicted": 2
+          },
+          "unknown": {
+            "unknown": 1
+          },
+          "partial": {
+            "partial": 1
+          }
+        },
+        "hard_negative_false_confirmed": 1,
+        "hard_negative_n": 3
+      }
+    },
+    "false_confirmed": [
+      {
+        "case_id": "hardneg-k8s-cafe",
+        "key": "kubernetes",
+        "matcher": "lexical",
+        "actual": "confirmed"
+      },
+      {
+        "case_id": "hardneg-k8s-cafe",
+        "key": "kubernetes",
+        "matcher": "hybrid",
+        "actual": "confirmed"
+      }
+    ],
+    "stability": [
+      {
+        "id": "paraphrase-python-fastapi",
+        "parent": "happy-python-fastapi",
+        "kind": "paraphrase",
+        "delta_job_fit": 0,
+        "limit": 5,
+        "passed": true,
+        "child_job_fit": 75,
+        "parent_job_fit": 75
+      },
+      {
+        "id": "format-python-fastapi",
+        "parent": "happy-python-fastapi",
+        "kind": "format",
+        "delta_job_fit": 0,
+        "limit": 0,
+        "passed": true,
+        "child_job_fit": 75,
+        "parent_job_fit": 75
+      }
+    ],
+    "cases": [
+      {
+        "id": "happy-python-fastapi",
+        "family": "happy_path",
+        "job_fit": 75,
+        "resume_alignment": 50,
+        "readiness": 66,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "happy-python-fastapi",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "fastapi": {
+            "case_id": "happy-python-fastapi",
+            "key": "fastapi",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "kubernetes": {
+            "case_id": "happy-python-fastapi",
+            "key": "kubernetes",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "paraphrase-python-fastapi",
+        "family": "paraphrase_stability",
+        "job_fit": 75,
+        "resume_alignment": 48,
+        "readiness": 65,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "paraphrase-python-fastapi",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "fastapi": {
+            "case_id": "paraphrase-python-fastapi",
+            "key": "fastapi",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "kubernetes": {
+            "case_id": "paraphrase-python-fastapi",
+            "key": "kubernetes",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "format-python-fastapi",
+        "family": "format_stability",
+        "job_fit": 75,
+        "resume_alignment": 50,
+        "readiness": 66,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "format-python-fastapi",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "fastapi": {
+            "case_id": "format-python-fastapi",
+            "key": "fastapi",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "kubernetes": {
+            "case_id": "format-python-fastapi",
+            "key": "kubernetes",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "hardneg-k8s-cafe",
+        "family": "hard_negative",
+        "job_fit": 100,
+        "resume_alignment": 48,
+        "readiness": 81,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "hardneg-k8s-cafe",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": true
+          },
+          "kubernetes": {
+            "case_id": "hardneg-k8s-cafe",
+            "key": "kubernetes",
+            "expected": "not_found",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": true
+          }
+        }
+      },
+      {
+        "id": "hardneg-keyword-stuffing",
+        "family": "hard_negative",
+        "job_fit": 50,
+        "resume_alignment": 26,
+        "readiness": 41,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "hardneg-keyword-stuffing",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "confirmed",
+            "hybrid": "confirmed",
+            "hard_negative": true
+          },
+          "fastapi": {
+            "case_id": "hardneg-keyword-stuffing",
+            "key": "fastapi",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": true
+          }
+        }
+      },
+      {
+        "id": "missing-all",
+        "family": "missing_evidence",
+        "job_fit": 0,
+        "resume_alignment": 8,
+        "readiness": 3,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "missing-all",
+            "key": "python",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          },
+          "fastapi": {
+            "case_id": "missing-all",
+            "key": "fastapi",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "contradicted-auth",
+        "family": "eligibility",
+        "job_fit": 100,
+        "resume_alignment": 44,
+        "readiness": 75,
+        "blocked": true,
+        "expected_blocked": true,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "contradicted-auth",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "work authorization": {
+            "case_id": "contradicted-auth",
+            "key": "work authorization",
+            "expected": "contradicted",
+            "lexical": "contradicted",
+            "tfidf": "contradicted",
+            "hybrid": "contradicted",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "eligibility-met",
+        "family": "eligibility",
+        "job_fit": 100,
+        "resume_alignment": 48,
+        "readiness": 82,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "eligibility-met",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "work authorization": {
+            "case_id": "eligibility-met",
+            "key": "work authorization",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "confirmed",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "boilerplate-eeo",
+        "family": "boilerplate",
+        "job_fit": 100,
+        "resume_alignment": 48,
+        "readiness": 81,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "boilerplate-eeo",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "equal opportunity": {
+            "case_id": "boilerplate-eeo",
+            "key": "equal opportunity",
+            "expected": "unknown",
+            "lexical": "unknown",
+            "tfidf": "unknown",
+            "hybrid": "unknown",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "partial-fastapi-docker",
+        "family": "partial_evidence",
+        "job_fit": 50,
+        "resume_alignment": 33,
+        "readiness": 44,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "fastapi": {
+            "case_id": "partial-fastapi-docker",
+            "key": "fastapi",
+            "expected": "partial",
+            "lexical": "partial",
+            "tfidf": "partial",
+            "hybrid": "partial",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "short-go-r-cpp",
+        "family": "short_skill",
+        "job_fit": 100,
+        "resume_alignment": 48,
+        "readiness": 81,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "short-go-r-cpp",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "go": {
+            "case_id": "short-go-r-cpp",
+            "key": "go",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "r": {
+            "case_id": "short-go-r-cpp",
+            "key": "r",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "c++": {
+            "case_id": "short-go-r-cpp",
+            "key": "c++",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "empty-resume",
+        "family": "missing_evidence",
+        "job_fit": 0,
+        "resume_alignment": 8,
+        "readiness": 3,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "empty-resume",
+            "key": "python",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          },
+          "fastapi": {
+            "case_id": "empty-resume",
+            "key": "fastapi",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "preferred-missing",
+        "family": "happy_path",
+        "job_fit": 75,
+        "resume_alignment": 48,
+        "readiness": 65,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "preferred-missing",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "partial",
+            "hybrid": "confirmed",
+            "hard_negative": false
+          },
+          "graphql": {
+            "case_id": "preferred-missing",
+            "key": "graphql",
+            "expected": "not_found",
+            "lexical": "not_found",
+            "tfidf": "not_found",
+            "hybrid": "not_found",
+            "hard_negative": false
+          }
+        }
+      },
+      {
+        "id": "negated-kubernetes",
+        "family": "hard_negative",
+        "job_fit": 50,
+        "resume_alignment": 26,
+        "readiness": 41,
+        "blocked": false,
+        "expected_blocked": false,
+        "blocked_match": true,
+        "states": {
+          "python": {
+            "case_id": "negated-kubernetes",
+            "key": "python",
+            "expected": "confirmed",
+            "lexical": "confirmed",
+            "tfidf": "not_found",
+            "hybrid": "confirmed",
+            "hard_negative": true
+          },
+          "kubernetes": {
+            "case_id": "negated-kubernetes",
+            "key": "kubernetes",
+            "expected": "contradicted",
+            "lexical": "contradicted",
+            "tfidf": "contradicted",
+            "hybrid": "contradicted",
+            "hard_negative": true
+          }
+        }
+      }
+    ],
+    "state_rows": [
+      {
+        "case_id": "happy-python-fastapi",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "happy-python-fastapi",
+        "key": "fastapi",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "happy-python-fastapi",
+        "key": "kubernetes",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "paraphrase-python-fastapi",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "paraphrase-python-fastapi",
+        "key": "fastapi",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "paraphrase-python-fastapi",
+        "key": "kubernetes",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "format-python-fastapi",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "format-python-fastapi",
+        "key": "fastapi",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "format-python-fastapi",
+        "key": "kubernetes",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "hardneg-k8s-cafe",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": true
+      },
+      {
+        "case_id": "hardneg-k8s-cafe",
+        "key": "kubernetes",
+        "expected": "not_found",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": true
+      },
+      {
+        "case_id": "hardneg-keyword-stuffing",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "confirmed",
+        "hybrid": "confirmed",
+        "hard_negative": true
+      },
+      {
+        "case_id": "hardneg-keyword-stuffing",
+        "key": "fastapi",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": true
+      },
+      {
+        "case_id": "missing-all",
+        "key": "python",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "missing-all",
+        "key": "fastapi",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "contradicted-auth",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "contradicted-auth",
+        "key": "work authorization",
+        "expected": "contradicted",
+        "lexical": "contradicted",
+        "tfidf": "contradicted",
+        "hybrid": "contradicted",
+        "hard_negative": false
+      },
+      {
+        "case_id": "eligibility-met",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "eligibility-met",
+        "key": "work authorization",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "confirmed",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "boilerplate-eeo",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "boilerplate-eeo",
+        "key": "equal opportunity",
+        "expected": "unknown",
+        "lexical": "unknown",
+        "tfidf": "unknown",
+        "hybrid": "unknown",
+        "hard_negative": false
+      },
+      {
+        "case_id": "partial-fastapi-docker",
+        "key": "fastapi",
+        "expected": "partial",
+        "lexical": "partial",
+        "tfidf": "partial",
+        "hybrid": "partial",
+        "hard_negative": false
+      },
+      {
+        "case_id": "short-go-r-cpp",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "short-go-r-cpp",
+        "key": "go",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "short-go-r-cpp",
+        "key": "r",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "short-go-r-cpp",
+        "key": "c++",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "empty-resume",
+        "key": "python",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "empty-resume",
+        "key": "fastapi",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "preferred-missing",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "partial",
+        "hybrid": "confirmed",
+        "hard_negative": false
+      },
+      {
+        "case_id": "preferred-missing",
+        "key": "graphql",
+        "expected": "not_found",
+        "lexical": "not_found",
+        "tfidf": "not_found",
+        "hybrid": "not_found",
+        "hard_negative": false
+      },
+      {
+        "case_id": "negated-kubernetes",
+        "key": "python",
+        "expected": "confirmed",
+        "lexical": "confirmed",
+        "tfidf": "not_found",
+        "hybrid": "confirmed",
+        "hard_negative": true
+      },
+      {
+        "case_id": "negated-kubernetes",
+        "key": "kubernetes",
+        "expected": "contradicted",
+        "lexical": "contradicted",
+        "tfidf": "contradicted",
+        "hybrid": "contradicted",
+        "hard_negative": true
+      }
+    ],
+    "blocked_accuracy": 1.0
+  },
+  "schema": [
+    {
+      "id": "extract-valid",
+      "kind": "extraction",
+      "expected_valid": true,
+      "actual_valid": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "extract-rejects-score",
+      "kind": "extraction",
+      "expected_valid": false,
+      "actual_valid": false,
+      "passed": true,
+      "error": "extra_forbidden"
+    },
+    {
+      "id": "edit-valid",
+      "kind": "edit_batch",
+      "expected_valid": true,
+      "actual_valid": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "edit-rejects-score",
+      "kind": "edit_batch",
+      "expected_valid": false,
+      "actual_valid": false,
+      "passed": true,
+      "error": "extra_forbidden"
+    }
+  ],
+  "n_schema": 4,
+  "schema_passed": 4,
+  "gguf": {
+    "status": "not_measured",
+    "reason": "LOCAL_MODEL_PATH is unset",
+    "downloaded": false
+  },
+  "grounding": {
+    "dataset": "evals/grounding/v1.0.0/cases.json",
+    "n_classification": 55,
+    "precision_supported": 0.7333333333333333,
+    "recall_supported": 1.0,
+    "false_supported_rate": 0.09090909090909091,
+    "false_rejected_rate": 0.0,
+    "limitation": "n is too small for production-level factual guarantees. These are lexical regression tests, not semantic entailment."
+  },
+  "embeddings": {
+    "status": "not_run",
+    "reason": "Would require downloading weights"
+  },
+  "fine_tune": {
+    "status": "not_run",
+    "reason": "No labeled generation set and no GGUF baseline"
+  }
+}

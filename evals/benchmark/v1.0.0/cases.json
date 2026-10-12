@@ -1,0 +1,258 @@
+{
+  "version": "v1.0.0",
+  "label_protocol": "evals/benchmark/v1.0.0/REVIEW.md",
+  "matching_cases": [
+    {
+      "id": "happy-python-fastapi",
+      "family": "happy_path",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nRequired: FastAPI\nPreferred: Kubernetes\n",
+      "resume": "Python engineer with FastAPI experience at Acme.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "kubernetes", "importance": "preferred", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false
+    },
+    {
+      "id": "paraphrase-python-fastapi",
+      "family": "paraphrase_stability",
+      "paraphrase_of": "happy-python-fastapi",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nRequired: FastAPI\nPreferred: Kubernetes\n",
+      "resume": "Backend software engineer using Python plus FastAPI at Acme.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "kubernetes", "importance": "preferred", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false,
+      "max_job_fit_delta": 5
+    },
+    {
+      "id": "format-python-fastapi",
+      "family": "format_stability",
+      "format_variant_of": "happy-python-fastapi",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nRequired: FastAPI\nPreferred: Kubernetes\n",
+      "resume": "Python engineer with FastAPI experience at Acme.\n\n\n",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "kubernetes", "importance": "preferred", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false,
+      "max_job_fit_delta": 0
+    },
+    {
+      "id": "hardneg-k8s-cafe",
+      "family": "hard_negative",
+      "target_role": "Platform engineer",
+      "jd": "Required: Kubernetes\nRequired: Python\n",
+      "resume": "Python engineer at Acme. Attended a meetup at Kubernetes Coffee in Austin.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "kubernetes", "importance": "mandatory", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": true,
+      "false_confirmed_keys": ["kubernetes"],
+      "expected_blocked": false,
+      "notes": "Place-name overlap is not skill evidence."
+    },
+    {
+      "id": "hardneg-keyword-stuffing",
+      "family": "hard_negative",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nRequired: FastAPI\n",
+      "resume": "python python python python python python python python python python intern",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": true,
+      "false_confirmed_keys": ["fastapi"],
+      "expected_blocked": false,
+      "notes": "Repeating one JD token must not confirm a missing skill."
+    },
+    {
+      "id": "missing-all",
+      "family": "missing_evidence",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nRequired: FastAPI\n",
+      "resume": "Line cook at Harbor Diner. Managed weekend shifts.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "not_found"},
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false
+    },
+    {
+      "id": "contradicted-auth",
+      "family": "eligibility",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nUS work authorization required\n",
+      "resume": "Python engineer at Acme. no us work authorization required",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "work authorization", "importance": "mandatory", "category": "experience", "evidence_state": "contradicted", "is_eligibility": true}
+      ],
+      "hard_negative": false,
+      "expected_blocked": true
+    },
+    {
+      "id": "eligibility-met",
+      "family": "eligibility",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nUS work authorization required\n",
+      "resume": "Python engineer at Acme. US work authorization required documentation on file.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "work authorization", "importance": "mandatory", "category": "experience", "evidence_state": "confirmed", "is_eligibility": true}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false
+    },
+    {
+      "id": "boilerplate-eeo",
+      "family": "boilerplate",
+      "target_role": "Python engineer",
+      "jd": "We are an equal opportunity employer with a fun team culture.\nRequired: Python\n",
+      "resume": "Python engineer at Acme.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "equal opportunity", "importance": "contextual", "category": "context", "evidence_state": "unknown"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false
+    },
+    {
+      "id": "partial-fastapi-docker",
+      "family": "partial_evidence",
+      "target_role": "Backend engineer",
+      "jd": "Required: FastAPI and Docker\n",
+      "resume": "FastAPI engineer at Acme.",
+      "expected_requirements": [
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "partial"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false,
+      "notes": "One of two required tokens is present."
+    },
+    {
+      "id": "short-go-r-cpp",
+      "family": "short_skill",
+      "target_role": "Systems engineer",
+      "jd": "Required: Go\nRequired: R\nRequired: C++\nRequired: Python\n",
+      "resume": "Python engineer at Acme. Used C++ and Go. Worked with R for reporting.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "go", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "r", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "c++", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false,
+      "notes": "Short skills must not be dropped by a 3+ character tokenizer."
+    },
+    {
+      "id": "empty-resume",
+      "family": "missing_evidence",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nRequired: FastAPI\n",
+      "resume": "",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "not_found"},
+        {"key": "fastapi", "importance": "mandatory", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false
+    },
+    {
+      "id": "preferred-missing",
+      "family": "happy_path",
+      "target_role": "Python engineer",
+      "jd": "Required: Python\nPreferred: GraphQL\n",
+      "resume": "Python engineer at Acme.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "graphql", "importance": "preferred", "category": "skill", "evidence_state": "not_found"}
+      ],
+      "hard_negative": false,
+      "expected_blocked": false
+    },
+    {
+      "id": "negated-kubernetes",
+      "family": "hard_negative",
+      "target_role": "Platform engineer",
+      "jd": "Required: Kubernetes\nRequired: Python\n",
+      "resume": "Python engineer at Acme. No Kubernetes experience.",
+      "expected_requirements": [
+        {"key": "python", "importance": "mandatory", "category": "skill", "evidence_state": "confirmed"},
+        {"key": "kubernetes", "importance": "mandatory", "category": "skill", "evidence_state": "contradicted"}
+      ],
+      "hard_negative": true,
+      "false_confirmed_keys": ["kubernetes"],
+      "expected_blocked": false
+    }
+  ],
+  "schema_cases": [
+    {
+      "id": "extract-valid",
+      "kind": "extraction",
+      "expected_valid": true,
+      "payload": {
+        "requirements": [
+          {"text": "Python", "importance": "mandatory", "category": "skill", "is_eligibility": false}
+        ],
+        "estimated_level": "mid"
+      }
+    },
+    {
+      "id": "extract-rejects-score",
+      "kind": "extraction",
+      "expected_valid": false,
+      "payload": {
+        "requirements": [
+          {"text": "Python", "importance": "mandatory", "category": "skill", "is_eligibility": false}
+        ],
+        "overall_score": 99
+      }
+    },
+    {
+      "id": "edit-valid",
+      "kind": "edit_batch",
+      "expected_valid": true,
+      "payload": {
+        "proposals": [
+          {
+            "original_span": "Python engineer with FastAPI experience at Acme.",
+            "proposed_text": "Python and FastAPI engineer at Acme.",
+            "requirement_id": null,
+            "rationale": "clarity"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edit-rejects-score",
+      "kind": "edit_batch",
+      "expected_valid": false,
+      "payload": {
+        "proposals": [
+          {
+            "original_span": "Python engineer with FastAPI experience at Acme.",
+            "proposed_text": "Python and FastAPI engineer at Acme.",
+            "requirement_id": null,
+            "rationale": "clarity"
+          }
+        ],
+        "overall_score": 99
+      }
+    }
+  ]
+}

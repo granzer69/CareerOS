@@ -4,6 +4,7 @@ import hashlib
 import re
 
 from app.schemas.evidence import EvidenceState, ModelRequirement, RequirementMatch
+from app.services.edit_grounding import short_skills
 
 _TOKEN_RE = re.compile(r"[a-z0-9+#.]{3,}")
 _STOPWORDS = {
@@ -35,26 +36,41 @@ def _normalize(text: str) -> str:
 
 
 def _tokens(text: str) -> list[str]:
-    return [
+    found = [
         token
         for token in _TOKEN_RE.findall(_normalize(text))
         if token not in _STOPWORDS
     ]
+    for skill in sorted(short_skills(text)):
+        if skill not in found:
+            found.append(skill)
+    return found
+
+
+def _token_in_haystack(token: str, haystack: str) -> bool:
+    """Require a word boundary for short skills so 'go' does not match 'going'."""
+    if token in {"go", "r", "c", "c++", "c#"} or len(token) <= 2:
+        return re.search(rf"(?<![a-z0-9+]){re.escape(token)}(?![a-z0-9+#])", haystack) is not None
+    return token in haystack
 
 
 def _negated(requirement: str, resume_text: str) -> bool:
     haystack = _normalize(resume_text)
-    phrase = _normalize(requirement)
-    if len(phrase) < 4:
-        return False
-    patterns = (
-        f"no {phrase}",
-        f"not {phrase}",
-        f"without {phrase}",
-        f"no experience with {phrase}",
-        f"no experience in {phrase}",
-    )
-    return any(pattern in haystack for pattern in patterns)
+    phrases = [_normalize(requirement), *_tokens(requirement)]
+    for phrase in phrases:
+        if len(phrase) < 2:
+            continue
+        patterns = (
+            f"no {phrase}",
+            f"not {phrase}",
+            f"not a {phrase}",
+            f"without {phrase}",
+            f"no experience with {phrase}",
+            f"no experience in {phrase}",
+        )
+        if any(pattern in haystack for pattern in patterns):
+            return True
+    return False
 
 
 def _best_span(tokens: list[str], resume_text: str) -> str | None:
@@ -97,7 +113,7 @@ def match_requirement(requirement: ModelRequirement, resume_text: str) -> Requir
         )
 
     haystack = _normalize(resume_text)
-    hits = [token for token in tokens if token in haystack]
+    hits = [token for token in tokens if _token_in_haystack(token, haystack)]
     if _negated(requirement.text, resume_text):
         return RequirementMatch(
             id=req_id,

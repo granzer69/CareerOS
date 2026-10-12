@@ -69,6 +69,21 @@ def test_match_states_cover_confirmed_partial_not_found_and_contradicted() -> No
     assert match_requirement(auth, resume).evidence_state == "contradicted"
 
 
+def test_short_skills_go_r_cpp_are_confirmed() -> None:
+    """Go, R, and C++ are not dropped by the 3+ character matcher tokenizer."""
+    resume = "Python engineer at Acme. Used C++ and Go. Worked with R for reporting."
+    for text in ("Required: Go", "Required: R", "Required: C++"):
+        requirement = ModelRequirement(text=text, importance="mandatory", category="skill")
+        assert match_requirement(requirement, resume).evidence_state == "confirmed"
+
+
+def test_negated_skill_phrase_is_contradicted() -> None:
+    """'No Kubernetes experience' contradicts a Kubernetes requirement."""
+    requirement = ModelRequirement(text="Required: Kubernetes", importance="mandatory", category="skill")
+    match = match_requirement(requirement, "Python engineer at Acme. No Kubernetes experience.")
+    assert match.evidence_state == "contradicted"
+
+
 def test_merge_adds_modeled_requirements_without_duplicate_phrasing() -> None:
     """Model requirements union with deterministic ones; near-duplicate phrasing is skipped."""
     deterministic = extract_requirements("Required: Python\nRequired: FastAPI\n")

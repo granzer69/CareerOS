@@ -42,7 +42,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 - User registration / login with JWT
 - User profile CRUD (write paths)
-- Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match and rubric scoring → persisted `resume_analyses` owned by the authenticated user
+- Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match (including short skills such as Go, R, and C++) and rubric scoring → persisted `resume_analyses` owned by the authenticated user
 - User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
 - Evidence-grounded edit proposals (`POST/GET /api/v1/resume/analyses/{id}/edits`) with accept/reject. Original resume text is immutable. Each batch is bound to the current version content hash. Accepted supported rewrites create a `resume_versions` row that is re-scored with rubric `v1.0.0`. Stale or concurrent accepts return 409. Owner-only version detail includes `resume_text` so the working copy can be reviewed; analysis GET and version list omit it. `POST .../restore-original` and `POST .../versions/{id}/restore` create a new version without rewriting history.
 - Health endpoint and CORS configuration for split frontend/backend deploy
@@ -97,10 +97,13 @@ python3 -m alembic heads
 
 CI and default `pytest` mock the local adapter and must not download weights.
 
-Grounding is fail-closed lexical/pattern matching, not a semantic entailment model. Unit tests lock the classifiers we have; they do not prove the rewriter never invents a fact in production. A reviewed evaluation set of paraphrase vs fabrication examples is still required before treating grounding as complete.
+Grounding is fail-closed lexical/pattern matching, not a semantic entailment model. The frozen Slice 4.1 set lives at `evals/grounding/v1.0.0/` (`n=55`). Run `PYTHONPATH=. python evals/grounding/run.py`. Those tests do not prove the rewriter never invents a fact in production.
+
+The Slice 5 pipeline benchmark lives at `evals/benchmark/v1.0.0/` (`n=14` matching cases). Run `PYTHONPATH=. python evals/benchmark/run.py`. It compares lexical vs TF-IDF vs hybrid matching, checks rubric stability and schema validity, and records a model decision. It does not download embedding or GGUF weights. Fine-tuning is not justified from this set.
 
 ## Future improvements
 
+- Slice 6: honest frontend from source (do not patch `frontend/dist`)
 - Flesh out roadmap / career-planning endpoints
 - Tighten production observability and rate limits
 - Clearer separation docs vs Range-Apply product surface
