@@ -1,40 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { request } from "../api";
+import { isSessionExpiredError } from "../authRedirect";
+import { Banner } from "../components/Banner";
+import { EditProposal } from "../components/EditProposal";
+import { LoadingState } from "../components/LoadingState";
+import { RequirementTable } from "../components/RequirementTable";
+import { ScoreCard } from "../components/ScoreCard";
+import { StatusPill } from "../components/StatusPill";
+import { SCORE_COPY } from "../copy";
 import type {
   ResumeAnalysisRead,
   ResumeEditRead,
   ResumeVersionRead,
   ResumeVersionSummary,
 } from "../types";
-
-const SCORE_COPY = {
-  fit: "Job-fit: how much of the JD is supported by resume evidence. Missing evidence is not proof the person lacks the skill.",
-  alignment:
-    "Resume-alignment: how clearly the current resume communicates those verified qualifications.",
-  readiness:
-    "Application-readiness: 0.60×fit + 0.35×alignment + 0.05×completeness (renormalized if completeness is unknown). Not P(hire) or P(interview).",
-  terminology:
-    "Terminology coverage (legacy field ats_score): keyword overlap with the JD. Not a vendor ATS score.",
-};
-
-function ScoreCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: number | null | undefined;
-  note: string;
-}) {
-  return (
-    <div className="card">
-      <div className="muted">{label}</div>
-      <strong style={{ fontSize: "1.8rem" }}>{value ?? "—"}</strong>
-      <p className="footnote">{note}</p>
-    </div>
-  );
-}
 
 export function AnalysisDetailPage() {
   const { analysisId } = useParams();
@@ -45,6 +25,7 @@ export function AnalysisDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [expired, setExpired] = useState(false);
 
   const load = useCallback(async () => {
     if (!analysisId) {
@@ -62,6 +43,10 @@ export function AnalysisDetailPage() {
 
   useEffect(() => {
     void load().catch((err: unknown) => {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Could not load analysis");
     });
   }, [load]);
@@ -84,6 +69,10 @@ export function AnalysisDetailPage() {
           : "No suggestions were returned.",
       );
     } catch (err) {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Could not generate edits");
     } finally {
       setBusy(false);
@@ -102,6 +91,10 @@ export function AnalysisDetailPage() {
       });
       await load();
     } catch (err) {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Reject failed");
     } finally {
       setBusy(false);
@@ -125,6 +118,10 @@ export function AnalysisDetailPage() {
         `Applied a supported rewrite as version ${next.version_number}. Original upload is unchanged.`,
       );
     } catch (err) {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Accept failed");
     } finally {
       setBusy(false);
@@ -146,6 +143,10 @@ export function AnalysisDetailPage() {
       await load();
       setNotice(`Restored the original resume as version ${next.version_number}.`);
     } catch (err) {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Restore failed");
     } finally {
       setBusy(false);
@@ -164,60 +165,100 @@ export function AnalysisDetailPage() {
       );
       setVersion(next);
     } catch (err) {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Could not load version");
     } finally {
       setBusy(false);
     }
   }
 
+  async function copySnapshotForward() {
+    if (!analysisId || !version) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const sourceNumber = version.version_number;
+    try {
+      const next = await request<ResumeVersionRead>(
+        `/api/v1/resume/analyses/${analysisId}/versions/${version.id}/restore`,
+        { method: "POST" },
+      );
+      setVersion(next);
+      await load();
+      setNotice(`Copied version ${sourceNumber} forward as version ${next.version_number}.`);
+    } catch (err) {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Restore failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (expired) {
+    return <Navigate to="/login" replace />;
+  }
   if (error && !analysis) {
-    return <div className="banner error">{error}</div>;
+    return <Banner tone="error">{error}</Banner>;
   }
   if (!analysis) {
-    return <p className="muted">Loading analysis…</p>;
+    return <LoadingState label="Loading analysis…" />;
   }
 
   const pending = edits.filter((item) => item.status === "pending");
+  const rubric = analysis.rubric_version ?? "unknown";
 
   return (
-    <div className="grid">
+    <div className="grid report">
       <p>
         <Link to="/history">← History</Link>
       </p>
-      {error ? <div className="banner error">{error}</div> : null}
-      {notice ? <div className="banner ok">{notice}</div> : null}
+      {error ? <Banner tone="error">{error}</Banner> : null}
+      {notice ? <Banner tone="ok">{notice}</Banner> : null}
       {analysis.blocked_by_requirement ? (
-        <div className="banner block">
+        <Banner tone="block">
           Blocked by a stated eligibility requirement. The composite score does not hide this.
-        </div>
+        </Banner>
       ) : null}
 
       <section className="card">
-        <h1>{analysis.file_name}</h1>
-        <p>
-          {analysis.target_role} · grade {analysis.grade} · estimated level {analysis.estimated_level}{" "}
-          · rubric {analysis.rubric_version ?? "unknown"}
-        </p>
+        <header className="report-header">
+          <h1>{analysis.file_name}</h1>
+          <p className="muted">
+            {analysis.target_role} · grade {analysis.grade} · estimated level {analysis.estimated_level}{" "}
+            · rubric {rubric}
+          </p>
+        </header>
         <div className="scores">
           <ScoreCard
             label="Job-fit"
             value={analysis.job_fit_score}
             note={SCORE_COPY.fit}
+            rubricVersion={rubric}
           />
           <ScoreCard
             label="Resume-alignment"
             value={analysis.resume_alignment_score}
             note={SCORE_COPY.alignment}
+            rubricVersion={rubric}
           />
           <ScoreCard
             label="Application-readiness"
             value={analysis.application_readiness_score ?? analysis.overall_score}
             note={SCORE_COPY.readiness}
+            rubricVersion={rubric}
           />
           <ScoreCard
             label="Terminology coverage"
             value={analysis.ats_score}
             note={SCORE_COPY.terminology}
+            rubricVersion={rubric}
           />
         </div>
       </section>
@@ -230,7 +271,7 @@ export function AnalysisDetailPage() {
           <ul>
             {analysis.eligibility.map((item) => (
               <li key={item.text}>
-                <span className={`pill ${item.status}`}>{item.status}</span> {item.text} — {item.rationale}
+                <StatusPill value={item.status} /> {item.text} — {item.rationale}
               </li>
             ))}
           </ul>
@@ -239,40 +280,17 @@ export function AnalysisDetailPage() {
 
       <section className="card">
         <h2>Requirement evidence</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Requirement</th>
-              <th>Importance</th>
-              <th>State</th>
-              <th>Rationale</th>
-            </tr>
-          </thead>
-          <tbody>
-            {analysis.requirement_matches.map((match) => (
-              <tr key={match.id}>
-                <td>{match.text}</td>
-                <td>{match.importance}</td>
-                <td>
-                  <span className={`pill ${match.evidence_state}`}>{match.evidence_state}</span>
-                </td>
-                <td>
-                  {match.rationale}
-                  {match.evidence_span ? <div className="footnote">span: {match.evidence_span}</div> : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <RequirementTable matches={analysis.requirement_matches} />
       </section>
 
       <section className="card">
         <h2>Presentation notes</h2>
         <p>
-          <strong>Strengths:</strong> {analysis.top_strengths.join(" · ")}
+          <strong>Strengths:</strong> {analysis.top_strengths.join(" · ") || "—"}
         </p>
         <p>
-          <strong>Gaps in the supplied evidence:</strong> {analysis.critical_weaknesses.join(" · ")}
+          <strong>Gaps in the supplied evidence:</strong>{" "}
+          {analysis.critical_weaknesses.join(" · ") || "—"}
         </p>
         {analysis.keywords_missing.length ? (
           <p>
@@ -294,83 +312,42 @@ export function AnalysisDetailPage() {
           The model never assigns scores or kind. Unsupported, needs-evidence, and missing-qualification
           items cannot be applied as facts.
         </p>
-        <button type="button" onClick={() => void generateEdits()} disabled={busy}>
+        <button type="button" onClick={() => void generateEdits()} disabled={busy} aria-busy={busy}>
           {busy ? "Working…" : "Generate suggestions"}
         </button>
         {pending.length === 0 ? <p className="muted">No pending suggestions.</p> : null}
         {pending.map((edit) => (
-          <article className="edit" key={edit.id}>
-            <div>
-              <span className={`pill ${edit.kind}`}>{edit.kind}</span>{" "}
-              <span className="pill">{edit.status}</span>
-            </div>
-            <p>{edit.rationale}</p>
-            <div className="diff">
-              <div>
-                <div className="muted">Original</div>
-                <pre>{edit.original_span || "—"}</pre>
-              </div>
-              <div>
-                <div className="muted">Proposed</div>
-                <pre>{edit.proposed_text}</pre>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {edit.kind === "supported_rewrite" ? (
-                <button type="button" disabled={busy} onClick={() => void acceptEdit(edit.id)}>
-                  Accept rewrite
-                </button>
-              ) : (
-                <span className="muted">Not auto-applied.</span>
-              )}
-              <button
-                className="secondary"
-                type="button"
-                disabled={busy}
-                onClick={() => void rejectEdit(edit.id)}
-              >
-                Reject
-              </button>
-            </div>
-          </article>
+          <EditProposal
+            key={edit.id}
+            edit={edit}
+            busy={busy}
+            onAccept={(id) => void acceptEdit(id)}
+            onReject={(id) => void rejectEdit(id)}
+          />
         ))}
       </section>
 
       <section className="card">
         <h2>Versions</h2>
         <p className="muted">The original analysis text stays immutable. Restore creates a new version.</p>
-        <button className="secondary" type="button" disabled={busy} onClick={() => void restoreOriginal()}>
-          Restore original as a new version
-        </button>
-        {version ? (
-          <button
-            className="secondary"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (!analysisId) {
-                return;
-              }
-              setBusy(true);
-              void request<ResumeVersionRead>(
-                `/api/v1/resume/analyses/${analysisId}/versions/${version.id}/restore`,
-                { method: "POST" },
-              )
-                .then(async (next) => {
-                  setVersion(next);
-                  await load();
-                  setNotice(`Copied version ${version.version_number} forward as version ${next.version_number}.`);
-                })
-                .catch((err: unknown) => {
-                  setError(err instanceof Error ? err.message : "Restore failed");
-                })
-                .finally(() => setBusy(false));
-            }}
-          >
-            Copy this snapshot forward
+        <div className="row">
+          <button className="secondary" type="button" disabled={busy} onClick={() => void restoreOriginal()}>
+            Restore original as a new version
           </button>
-        ) : null}
-        {versions.length === 0 ? <p>No accepted versions yet.</p> : (
+          {version ? (
+            <button
+              className="secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => void copySnapshotForward()}
+            >
+              Copy this snapshot forward
+            </button>
+          ) : null}
+        </div>
+        {versions.length === 0 ? (
+          <p>No accepted versions yet.</p>
+        ) : (
           <ul>
             {versions.map((item) => (
               <li key={item.id}>

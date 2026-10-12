@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { apiUrl, clearToken, getToken } from "./api";
+import { Banner } from "./components/Banner";
+import { HONESTY_COPY } from "./copy";
 import { AnalysisDetailPage } from "./pages/AnalysisDetailPage";
 import { AnalyzePage } from "./pages/AnalyzePage";
 import { AuthPage } from "./pages/AuthPage";
@@ -16,6 +18,7 @@ function RequireAuth() {
 
 function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
 
@@ -43,31 +46,37 @@ function AppShell() {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <header className="topbar">
         <Link className="brand" to="/">
           <strong>CareerOS</strong>
           <span>JD-driven resume copilot</span>
         </Link>
-        <nav>
-          <Link to="/">Analyze</Link>
-          <Link to="/history">History</Link>
+        <nav aria-label="Primary">
+          <Link to="/" aria-current={location.pathname === "/" ? "page" : undefined}>
+            Analyze
+          </Link>
+          <Link
+            to="/history"
+            aria-current={location.pathname === "/history" ? "page" : undefined}
+          >
+            History
+          </Link>
           <button className="secondary" type="button" onClick={logout}>
             Sign out
           </button>
         </nav>
       </header>
-      {healthError ? <div className="banner error">{healthError}</div> : null}
-      {modelMissing ? (
-        <div className="banner warn">
-          Local model: not configured. Analysis and edit generation need a GGUF file on the API host
-          (`LOCAL_MODEL_PATH`). Missing weights return 503 `model_unavailable` — CareerOS does not
-          call a hosted LLM and will not download weights for you.
-        </div>
-      ) : null}
+      {healthError ? <Banner tone="error">{healthError}</Banner> : null}
+      {modelMissing ? <Banner tone="warn">{HONESTY_COPY.modelMissing}</Banner> : null}
       {health?.local_model === "configured" ? (
-        <div className="banner ok">Local model file is present. Scores still come from rubric v1.0.0, not the model.</div>
+        <Banner tone="ok">{HONESTY_COPY.modelConfigured}</Banner>
       ) : null}
-      <Outlet />
+      <main id="main-content">
+        <Outlet />
+      </main>
     </div>
   );
 }

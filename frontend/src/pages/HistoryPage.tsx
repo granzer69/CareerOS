@@ -1,48 +1,59 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { request } from "../api";
+import { isSessionExpiredError } from "../authRedirect";
+import { Banner } from "../components/Banner";
+import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
+import { HONESTY_COPY } from "../copy";
 import type { ResumeAnalysisSummary } from "../types";
 
 export function HistoryPage() {
   const [rows, setRows] = useState<ResumeAnalysisSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     void request<ResumeAnalysisSummary[]>("/api/v1/resume/analyses")
       .then(setRows)
       .catch((err: unknown) => {
+        if (isSessionExpiredError(err)) {
+          setExpired(true);
+          return;
+        }
         setError(err instanceof Error ? err.message : "Could not load history");
       });
   }, []);
 
+  if (expired) {
+    return <Navigate to="/login" replace />;
+  }
   if (error) {
-    return <div className="banner error">{error}</div>;
+    return <Banner tone="error">{error}</Banner>;
   }
   if (!rows) {
-    return <p className="muted">Loading history…</p>;
+    return <LoadingState label="Loading history…" />;
   }
   if (rows.length === 0) {
     return (
-      <div className="card">
-        <h1>History</h1>
+      <EmptyState title="History" action={<Link to="/">Go to analyze</Link>}>
         <p>No analyses yet. Run an analysis with a resume and a job description.</p>
-        <Link to="/">Go to analyze</Link>
-      </div>
+      </EmptyState>
     );
   }
 
   return (
     <div className="card">
       <h1>Your analyses</h1>
-      <p className="muted">Overall score is application-readiness, not a hiring probability.</p>
+      <p className="muted">{HONESTY_COPY.historyReadiness}</p>
       <table>
         <thead>
           <tr>
-            <th>File</th>
-            <th>Role</th>
-            <th>Readiness</th>
-            <th>Grade</th>
-            <th>When</th>
+            <th scope="col">File</th>
+            <th scope="col">Role</th>
+            <th scope="col">Readiness</th>
+            <th scope="col">Grade</th>
+            <th scope="col">When</th>
           </tr>
         </thead>
         <tbody>

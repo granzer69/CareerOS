@@ -1,6 +1,8 @@
 import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { getToken, request, setToken } from "../api";
+import { Banner } from "../components/Banner";
+import { HONESTY_COPY } from "../copy";
 import type { TokenResponse } from "../types";
 
 export function AuthPage() {
@@ -37,55 +39,59 @@ export function AuthPage() {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <header className="topbar">
         <div className="brand">
           <strong>CareerOS</strong>
           <span>Sign in to analyze a resume against a job description</span>
         </div>
       </header>
-      <div className="card" style={{ maxWidth: 420 }}>
-        <h1>{mode === "login" ? "Sign in" : "Create an account"}</h1>
-        <p className="muted">
-          Analyses are stored only for the signed-in owner. This is not a placement predictor and
-          does not recommend companies.
-        </p>
-        {error ? <div className="banner error">{error}</div> : null}
-        <form className="grid" onSubmit={onSubmit}>
-          <label>
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              minLength={mode === "register" ? 8 : 1}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
-          <button type="submit" disabled={pending}>
-            {pending ? "Working…" : mode === "login" ? "Sign in" : "Register"}
-          </button>
-        </form>
-        <p>
-          <button
-            className="secondary"
-            type="button"
-            onClick={() => setMode(mode === "login" ? "register" : "login")}
-          >
-            {mode === "login" ? "Need an account?" : "Already registered?"}
-          </button>
-        </p>
-      </div>
+      <main id="main-content">
+        <div className="card auth-card">
+          <h1>{mode === "login" ? "Sign in" : "Create an account"}</h1>
+          <p className="muted">{HONESTY_COPY.notPredictor}</p>
+          {error ? <Banner tone="error">{error}</Banner> : null}
+          <form className="grid" onSubmit={onSubmit} aria-busy={pending}>
+            <label htmlFor="email">
+              Email
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+            <label htmlFor="password">
+              Password
+              <input
+                id="password"
+                type="password"
+                minLength={mode === "register" ? 8 : 1}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </label>
+            <button type="submit" disabled={pending}>
+              {pending ? "Working…" : mode === "login" ? "Sign in" : "Register"}
+            </button>
+          </form>
+          <p>
+            <button
+              className="secondary"
+              type="button"
+              onClick={() => setMode(mode === "login" ? "register" : "login")}
+            >
+              {mode === "login" ? "Need an account?" : "Already registered?"}
+            </button>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
