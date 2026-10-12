@@ -7,16 +7,15 @@ This is CareerOS — an AI-powered career operating system.
 
 ## Tech Stack
 - Python 3.11, FastAPI, SQLAlchemy 2.0 async, PostgreSQL
-- Redis, Anthropic Claude API, Pydantic v2, Alembic, Next.js 14.
+- Pydantic v2, Alembic, local GGUF inference (`llama-cpp-python` optional extra)
 
 ## Key Architectural Rules (Always Apply)
 - Never make synchronous database calls
 - Never hardcode API keys — use environment variables via `core/config.py`
-- All Claude API calls live in `app/ai/` only
-- Progress tracking uses event sourcing — append only, never UPDATE
-- Roadmaps are versioned — new AI analysis creates a new version row
-- Every Claude API call must save a `context_snapshot` to the database
+- All model inference lives in `app/ai/` behind the local adapter
+- Do not call hosted LLM or embedding APIs from the CareerOS runtime
+- Missing local weights fail closed; never fall back to a hosted provider
 
 ## Current Development Phase
 - Phase: MVP (Phase 1)
-- Active focus: FastAPI skeleton + Claude integration + PostgreSQL models
+- Active focus: local inference adapter + FastAPI + PostgreSQL models

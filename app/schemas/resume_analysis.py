@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.evidence import EligibilityItem, RequirementMatch
+
 
 class ResumeSectionSchema(BaseModel):
     """Schema for an individual resume section evaluation."""
@@ -27,7 +29,7 @@ class ResumeSectionSchema(BaseModel):
 
 
 class ResumeAnalysisResult(BaseModel):
-    """Schema matching the exact JSON structure Claude must return."""
+    """Legacy presentation fields still returned on analysis reads."""
 
     overall_score: int = Field(..., ge=0, le=100)
     grade: Literal["A", "B", "C", "D", "F"] = Field(...)
@@ -39,6 +41,22 @@ class ResumeAnalysisResult(BaseModel):
     sections: list[ResumeSectionSchema] = Field(...)
 
     model_config = {"extra": "forbid"}
+
+
+class ResumeAnalysisSummary(BaseModel):
+    """Safe list item for the authenticated owner's analysis history."""
+
+    id: UUID
+    file_name: str
+    target_role: str
+    overall_score: int
+    grade: str
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+        "extra": "forbid",
+    }
 
 
 class ResumeAnalysisRead(BaseModel):
@@ -57,6 +75,15 @@ class ResumeAnalysisRead(BaseModel):
     keywords_missing: list[str]
     sections: list[ResumeSectionSchema]
     created_at: datetime
+    job_description: str | None = None
+    job_fit_score: int | None = None
+    resume_alignment_score: int | None = None
+    application_readiness_score: int | None = None
+    rubric_version: str | None = None
+    requirement_matches: list[RequirementMatch] = Field(default_factory=list)
+    eligibility: list[EligibilityItem] = Field(default_factory=list)
+    blocked_by_requirement: bool = False
+    completeness_included: bool = False
 
     model_config = {
         "from_attributes": True,

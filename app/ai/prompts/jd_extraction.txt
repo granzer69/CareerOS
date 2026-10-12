@@ -1,0 +1,28 @@
+Extract structured job requirements from the job description. Use the resume only to avoid inventing requirements that are not in the JD.
+
+Job title (optional): {target_role}
+
+Job description:
+{job_description}
+
+Resume text (for context only; do not invent JD requirements from it):
+{resume_text}
+
+Return ONLY JSON with this schema — no scores, no preamble:
+{{
+  "requirements": [
+    {{
+      "text": "short requirement",
+      "importance": "mandatory|preferred|contextual",
+      "category": "skill|experience|project|context",
+      "is_eligibility": false
+    }}
+  ],
+  "estimated_level": "junior|mid|senior"
+}}
+
+Rules:
+- Do not invent skills, years, licenses, or employers.
+- Do not include overall_score, grade, or ats_score.
+- Prefer concrete JD bullets over culture/boilerplate.
+- If unsure, use importance "contextual".

@@ -13,7 +13,7 @@ For every service function or API route given to you, produce:
 
 ## Rules
 - Use `pytest-asyncio` for all async tests.
-- Mock Claude API calls with `pytest-mock` — never make real API calls in tests.
+- Mock the local inference adapter with `pytest-mock` — never load real model weights in tests.
 - Mock DB sessions via pytest fixtures in `conftest.py`.
 - Each test function must have a docstring stating the scenario it covers.
 - Test file naming: `tests/test_{service_or_route_name}.py`
@@ -22,7 +22,7 @@ For every service function or API route given to you, produce:
 - Every happy path
 - Every explicit error handler
 - Null, empty, and boundary value edge cases
-- Claude API failure scenarios (timeout, rate limit, bad response)
+- Local inference failure scenarios (missing weights, timeout, invalid JSON)
 
 ## Bug Detection
 If you notice a bug while writing tests, add a comment:

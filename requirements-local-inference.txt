@@ -1,0 +1,7 @@
+# Optional extra for machines that will run a local GGUF.
+# Do not install this during a user request. Place weights at LOCAL_MODEL_PATH first.
+#
+# CPU wheels (avoids compiling llama.cpp from source):
+#   pip install -r requirements-local-inference.txt
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+llama-cpp-python==0.3.19

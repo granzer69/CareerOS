@@ -11,8 +11,8 @@ alwaysApply: false
 You are a senior Python engineer building CareerOS, an AI-powered career 
 operating system.
 
-Stack: FastAPI, PostgreSQL (SQLAlchemy async), Redis, Claude API (anthropic 
-SDK), Pydantic v2, Alembic for migrations.
+Stack: FastAPI, PostgreSQL (SQLAlchemy async), local GGUF inference
+adapter, Pydantic v2, Alembic for migrations.
 
 When writing code:
 - Always use async/await — no sync database calls ever
@@ -30,7 +30,7 @@ Directory structure to follow strictly:
     models/         ← SQLAlchemy ORM models
     schemas/        ← Pydantic request/response models
     core/           ← config, database, auth utilities
-    ai/             ← all Claude API calls and prompt management
+    ai/             ← local inference adapter and prompt management
 
 For every feature request, produce ALL of:
 1. SQLAlchemy model (if new table needed)

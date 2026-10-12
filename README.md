@@ -1,12 +1,16 @@
 # CareerOS
 
-FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and PostgreSQL persistence — with Anthropic Claude producing structured analysis results.
+FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and PostgreSQL persistence. Resume analysis uses a **local GGUF model** through a small inference adapter — not a hosted LLM API.
 
-> Honest scope: this is a working resume-analysis product surface (auth, profiles, Claude analysis, deploy configs). It is **not** a fully autonomous job-application system. For phased job discovery / match orchestration, see [Range-Apply](https://github.com/granzer69/Range-Apply).
+> Honest scope: this is a working resume-analysis product surface (auth, profiles, local-model analysis, deploy configs). It is **not** a fully autonomous job-application system. For phased job discovery / match orchestration, see [Range-Apply](https://github.com/granzer69/Range-Apply).
 
 ## Overview
 
-CareerOS helps a signed-in user upload a resume, choose a target role, and receive a validated analysis payload from Claude. Profiles and analysis history are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
+CareerOS helps a user upload a resume, paste a job description, and receive three versioned scores: **job-fit**, **resume-alignment**, and **application-readiness**. A local GGUF model may extract extra JD requirements or propose span rewrites; it does not invent the final numbers. Profiles, analyses, edit suggestions, and accepted resume versions are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
+
+`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The checked-in static frontend bundle does not send a token, so analyze will return 401 until the frontend is rebuilt from source.
+
+If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze and edit generation return HTTP 503 `model_unavailable` and do not call a hosted provider.
 
 ## Architecture
 
@@ -14,7 +18,9 @@ CareerOS helps a signed-in user upload a resume, choose a target role, and recei
 React frontend  →  FastAPI (JWT)  →  PostgreSQL
                          │
                          ├─ resume parse (PDF/DOCX)
-                         └─ Anthropic Claude → ResumeAnalysisResult (Pydantic)
+                         ├─ deterministic JD split + evidence match + rubric v1.0.0
+                         ├─ evidence-grounded edit proposals + accepted resume versions
+                         └─ local GGUF adapter → ModelExtraction / ModelEditBatch (no scores)
 ```
 
 ## Tech stack
@@ -24,19 +30,21 @@ React frontend  →  FastAPI (JWT)  →  PostgreSQL
 | API | FastAPI, Uvicorn, Pydantic Settings |
 | Auth | JWT (`python-jose`) |
 | DB | SQLAlchemy, Alembic, asyncpg / aiosqlite |
-| AI | Anthropic Claude (`claude-sonnet-4-20250514`), prompt template + JSON validation with retry |
+| AI | Local GGUF via `llama-cpp-python` (optional extra), prompt template + JSON validation with retry |
 | Resume I/O | PyPDF2, python-docx |
 | Frontend | React (Vite build), deploy via Vercel |
 | Deploy | Render (`render.yaml`), Vercel (`frontend/vercel.json`) |
-| Tests | pytest |
+| Tests | pytest (local adapter is mocked; no weights required) |
 
 Also listed in requirements (available for extension): ChromaDB, Redis — not required for the core resume-analysis path described above.
 
 ## Implemented features
 
 - User registration / login with JWT
-- User profile CRUD
-- Resume upload → text extraction → Claude analysis → persisted `resume_analyses`
+- User profile CRUD (write paths)
+- Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match (including short skills such as Go, R, and C++) and rubric scoring → persisted `resume_analyses` owned by the authenticated user
+- User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
+- Evidence-grounded edit proposals (`POST/GET /api/v1/resume/analyses/{id}/edits`) with accept/reject. Original resume text is immutable. Each batch is bound to the current version content hash. Accepted supported rewrites create a `resume_versions` row that is re-scored with rubric `v1.0.0`. Stale or concurrent accepts return 409. Owner-only version detail includes `resume_text` so the working copy can be reviewed; analysis GET and version list omit it. `POST .../restore-original` and `POST .../versions/{id}/restore` create a new version without rewriting history.
 - Health endpoint and CORS configuration for split frontend/backend deploy
 - Alembic migrations for users, profiles, resume analyses
 - Unit / integration tests for auth and profile flows
@@ -49,18 +57,31 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 
 ## Key engineering decisions
 
-- **Structured LLM output**: Claude response is parsed as JSON and validated with Pydantic; malformed JSON triggers a bounded retry
-- **Prompt as file**: analysis prompt kept under `app/ai/prompts/` for inspectability
+- **Local inference only**: no Anthropic/OpenAI/Gemini keys or cloud fallback in the runtime
+- **Missing weights fail closed**: analyze returns 503; `/health` and auth keep running
+- **Structured model output**: extraction JSON is validated with Pydantic (`extra=forbid`); numeric scores are rejected; malformed JSON triggers a bounded retry
+- **Deterministic scoring**: job-fit, alignment, and readiness come from rubric `v1.0.0`; `overall_score` is application-readiness; `ats_score` is terminology coverage, not a vendor ATS
+- **Prompt as file**: extraction and edit prompts kept under `app/ai/prompts/` for inspectability
+- **Evidence-grounded edits**: `supported_rewrite` requires unique source offsets and attested employers, titles, responsibilities, dates, metrics, and short skills (including Go, R, C++). Unverifiable claims are `needs_evidence` or `unsupported`. The local model cannot override classification or scores.
+- **Version integrity**: edits are generated against the current snapshot, not always the original upload. Pending batches are preserved. Offset replacement is used instead of first-occurrence `find`.
 - **Migrations first**: schema changes via Alembic rather than ad-hoc create-all in production paths
 - **Split deploy**: API on Render, frontend on Vercel, with explicit `ALLOWED_ORIGINS` / `BACKEND_URL`
 
 ## Getting started
 
-1. Copy `.env.example` → `.env` (set `ANTHROPIC_API_KEY`, DB URL, JWT secret, CORS origins).
+1. Copy `.env.example` → `.env` (set DB URL, JWT secret, CORS origins).
 2. `pip install -r requirements.txt`
 3. `alembic upgrade head`
-4. `uvicorn app.main:app --reload`
-5. In `frontend`: set `BACKEND_URL`, then `npm run build`
+4. Optional, only on a machine that will run analysis:
+   - download a GGUF **outside** the request path
+   - `pip install -r requirements-local-inference.txt`
+   - set `LOCAL_MODEL_PATH` to that file
+5. `uvicorn app.main:app --reload`
+6. In `frontend`: set `BACKEND_URL`, then `npm run build`
+
+If `LOCAL_MODEL_PATH` is empty, the API still boots. Analyze returns `{"detail": {"detail": "Local model weights are not available", "code": "model_unavailable"}}`.
+
+The default Render free instance does not have enough RAM for a GGUF. Leave `LOCAL_MODEL_PATH` empty there, or run inference on a host that can hold the file.
 
 ### Deploy notes
 
@@ -70,13 +91,19 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 ## Testing
 
 ```bash
-pytest
-alembic heads
-cd frontend && npm run build && npm run verify
+pytest tests/ -q
+python3 -m alembic heads
 ```
+
+CI and default `pytest` mock the local adapter and must not download weights.
+
+Grounding is fail-closed lexical/pattern matching, not a semantic entailment model. The frozen Slice 4.1 set lives at `evals/grounding/v1.0.0/` (`n=55`). Run `PYTHONPATH=. python evals/grounding/run.py`. Those tests do not prove the rewriter never invents a fact in production.
+
+The Slice 5 pipeline benchmark lives at `evals/benchmark/v1.0.0/` (`n=14` matching cases). Run `PYTHONPATH=. python evals/benchmark/run.py`. It compares lexical vs TF-IDF vs hybrid matching, checks rubric stability and schema validity, and records a model decision. It does not download embedding or GGUF weights. Fine-tuning is not justified from this set.
 
 ## Future improvements
 
+- Slice 6: honest frontend from source (do not patch `frontend/dist`)
 - Flesh out roadmap / career-planning endpoints
 - Tighten production observability and rate limits
 - Clearer separation docs vs Range-Apply product surface

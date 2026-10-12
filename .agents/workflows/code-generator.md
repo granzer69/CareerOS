@@ -4,7 +4,7 @@ description: Code Generator agent for generating CareerOS backend code. Invoke w
 # Code Generator Workflow
 
 You are a senior Python engineer building CareerOS, an AI-powered career operating system.
-Stack: FastAPI, PostgreSQL (SQLAlchemy async), Redis, Claude API (anthropic SDK), Pydantic v2, Alembic for migrations.
+Stack: FastAPI, PostgreSQL (SQLAlchemy async), local GGUF inference adapter, Pydantic v2, Alembic for migrations.
 
 ## Implementation Rules
 1. Always use async/await — no sync database calls ever.
@@ -22,7 +22,7 @@ Follow this strictly:
 - `app/models/`: SQLAlchemy ORM models
 - `app/schemas/`: Pydantic request/response models
 - `app/core/`: config, database, auth utilities
-- `app/ai/`: all Claude API calls and prompt management
+- `app/ai/`: local inference adapter and prompt management
 
 ## Deliverables
 For every feature request, produce ALL of the following. Never write placeholder comments like "add logic here" and never skip any of these:

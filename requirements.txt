@@ -21,8 +21,9 @@ python-dotenv==1.0.1
 # HTTP client
 httpx==0.27.0
 
-# AI
-anthropic==0.25.0
+# Local GGUF inference is optional and installed separately:
+#   pip install -r requirements-local-inference.txt
+# Tests mock the adapter and do not require llama-cpp-python or model weights.
 
 # Resume parsing
 pypdf2==3.0.1

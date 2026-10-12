@@ -1,0 +1,10 @@
+{
+  "version": "v1.0.0",
+  "created": "2026-10-12",
+  "label_source": "spec-labeled",
+  "split": "locked-test",
+  "inference": "none",
+  "embeddings": "not-run",
+  "fine_tune": "not-run",
+  "notes": "Closed-set Slice 5 fixture. IDF for the TF-IDF baseline is fit on this corpus only. Thresholds frozen before scoring."
+}

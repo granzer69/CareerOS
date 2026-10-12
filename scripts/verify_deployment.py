@@ -15,7 +15,6 @@ sys.path.insert(0, str(ROOT))
 REQUIRED_BACKEND_VARS = [
     "DATABASE_URL",
     "SECRET_KEY",
-    "ANTHROPIC_API_KEY",
     "ALLOWED_ORIGINS",
     "ENVIRONMENT",
 ]

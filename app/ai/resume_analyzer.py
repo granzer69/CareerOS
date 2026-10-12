@@ -3,75 +3,87 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import anthropic
 from pydantic import ValidationError
 
-from app.core.config import settings
-from app.schemas.resume_analysis import ResumeAnalysisResult
+from app.ai.local_inference import (
+    LocalInferenceAdapter,
+    LocalInferenceError,
+    LocalModelNotFoundError,
+    build_local_adapter,
+)
+from app.schemas.evidence import ModelExtraction
 
-_PROMPT_PATH = Path(__file__).parent / "prompts" / "resume_analysis.txt"
+_PROMPT_PATH = Path(__file__).parent / "prompts" / "jd_extraction.txt"
 _MAX_RETRIES = 2
 
 
 def _load_prompt_template() -> str:
-    """Load the resume analysis prompt template from disk."""
+    """Load the JD extraction prompt template from disk."""
     return _PROMPT_PATH.read_text(encoding="utf-8")
 
 
-def _build_prompt(*, target_role: str, resume_text: str) -> str:
-    """Build the final prompt by interpolating role and resume text into the template."""
+def _escape_braces(value: str) -> str:
+    """Keep user text from being interpreted as str.format placeholders."""
+    return value.replace("{", "{{").replace("}", "}}")
+
+
+def _build_prompt(*, target_role: str, job_description: str, resume_text: str) -> str:
+    """Build the extraction prompt from the saved template."""
     template = _load_prompt_template()
-    return template.format(target_role=target_role, resume_text=resume_text)
+    return template.format(
+        target_role=_escape_braces(target_role),
+        job_description=_escape_braces(job_description),
+        resume_text=_escape_braces(resume_text),
+    )
 
 
-async def analyze_resume_with_claude(
+def _strip_markdown_fences(raw_text: str) -> str:
+    """Remove optional markdown code fences around model JSON."""
+    stripped = raw_text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    lines = [ln for ln in stripped.splitlines() if not ln.strip().startswith("```")]
+    return "\n".join(lines).strip()
+
+
+async def extract_requirements_with_model(
     *,
     resume_text: str,
     target_role: str,
-) -> ResumeAnalysisResult:
+    job_description: str,
+    adapter: LocalInferenceAdapter | None = None,
+) -> ModelExtraction:
     """
-    Send extracted resume text to Claude for analysis and return validated results.
+    Ask the local model for structured JD requirements. Scores are rejected by schema.
 
-    Builds a prompt from the saved template, calls the Claude API, parses the
-    returned JSON, and validates it against ResumeAnalysisResult.  If Claude
-    returns malformed JSON the call is retried once (total of 2 attempts).
-
-    Raises:
-        ValueError: If Claude returns invalid JSON after all retry attempts.
-        anthropic.APIError: If the Claude API itself returns an error.
+    Malformed JSON is retried once. Missing weights and inference failures are not
+    retried and never fall back to a hosted provider.
     """
-    api_key = settings.ANTHROPIC_API_KEY
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not set in environment / .env")
-
-    client = anthropic.AsyncAnthropic(api_key=api_key)
-    prompt = _build_prompt(target_role=target_role, resume_text=resume_text)
-
+    inference = adapter if adapter is not None else build_local_adapter()
+    prompt = _build_prompt(
+        target_role=target_role,
+        job_description=job_description,
+        resume_text=resume_text,
+    )
     last_error: Exception | None = None
 
-    for attempt in range(_MAX_RETRIES):
-        message = await client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    for _attempt in range(_MAX_RETRIES):
+        try:
+            raw_text = await inference.complete(prompt)
+        except (LocalModelNotFoundError, LocalInferenceError):
+            raise
+        except Exception as exc:
+            raise LocalInferenceError("Local inference failed") from exc
 
-        raw_text = message.content[0].text.strip()
-
-        # Strip markdown fences if Claude wraps the JSON
-        if raw_text.startswith("```"):
-            lines = raw_text.splitlines()
-            # Remove first and last fence lines
-            lines = [ln for ln in lines if not ln.strip().startswith("```")]
-            raw_text = "\n".join(lines).strip()
+        raw_text = _strip_markdown_fences(raw_text)
 
         try:
             parsed = json.loads(raw_text)
-            return ResumeAnalysisResult.model_validate(parsed)
+            return ModelExtraction.model_validate(parsed)
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc
             continue
 
     raise ValueError(
-        f"Claude returned malformed JSON after {_MAX_RETRIES} attempts: {last_error}"
+        f"Model output was not valid extraction JSON after {_MAX_RETRIES} attempts: {last_error}"
     )
