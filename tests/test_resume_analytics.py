@@ -131,19 +131,21 @@ async def test_analytics_query_filters_by_owner(
     current_user_id: UUID,
 ) -> None:
     """Analytics SQL is scoped to the caller, so other users and NULL owners are excluded."""
-    db_session_mock.execute.return_value = SimpleNamespace(
-        scalars=lambda: SimpleNamespace(all=lambda: [])
-    )
+    empty_analyses = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    no_profile = SimpleNamespace(scalar_one_or_none=lambda: None)
+    db_session_mock.execute.side_effect = [empty_analyses, no_profile]
     service = ResumeService(db_session=db_session_mock)
     await service.get_analytics_for_user(user_id=current_user_id)
 
-    stmt = db_session_mock.execute.await_args.args[0]
-    sql = str(stmt.compile(compile_kwargs={"literal_binds": True})).lower()
-    assert "resume_analyses.user_id" in sql
-    assert current_user_id.hex in sql
-    assert OTHER_ID.hex not in sql
-    assert "is null" not in sql
-    assert "limit" in sql
+    sql_calls = [
+        str(call.args[0].compile(compile_kwargs={"literal_binds": True})).lower()
+        for call in db_session_mock.execute.await_args_list
+    ]
+    analysis_sql = next(sql for sql in sql_calls if "resume_analyses.user_id" in sql)
+    assert current_user_id.hex in analysis_sql
+    assert OTHER_ID.hex not in analysis_sql
+    assert "is null" not in analysis_sql
+    assert "limit" in analysis_sql
 
 
 def test_analytics_empty_history_is_honest(

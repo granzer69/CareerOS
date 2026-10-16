@@ -84,6 +84,32 @@ def test_negated_skill_phrase_is_contradicted() -> None:
     assert match.evidence_state == "contradicted"
 
 
+def test_colon_comma_skill_lists_expand_to_separate_requirements() -> None:
+    """Inline skill lists become one requirement row per skill, grounded in JD text."""
+    jd = "Required skills: Python, JavaScript, React, SQL, Git, Docker"
+    texts = [item.text.lower() for item in extract_requirements(jd)]
+    assert any("python" in text for text in texts)
+    assert any("docker" in text for text in texts)
+    assert len(texts) >= 4
+
+
+def test_section_headings_set_preferred_importance() -> None:
+    """Lines under a Preferred section inherit preferred importance when not otherwise marked."""
+    jd = "Preferred:\nKubernetes experience\nTerraform"
+    requirements = extract_requirements(jd)
+    kube = [item for item in requirements if "kubernetes" in item.text.lower()]
+    assert kube
+    assert kube[0].importance == "preferred"
+
+
+def test_numbered_bullets_are_extracted() -> None:
+    """Numbered JD bullets are split into separate units."""
+    jd = "Requirements:\n1. Python backend development\n2. REST API design"
+    texts = " ".join(item.text.lower() for item in extract_requirements(jd))
+    assert "python" in texts
+    assert "rest api" in texts
+
+
 def test_merge_adds_modeled_requirements_without_duplicate_phrasing() -> None:
     """Model requirements union with deterministic ones; near-duplicate phrasing is skipped."""
     deterministic = extract_requirements("Required: Python\nRequired: FastAPI\n")

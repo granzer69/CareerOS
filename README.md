@@ -104,6 +104,10 @@ Grounding is fail-closed lexical/pattern matching, not a semantic entailment mod
 
 The Slice 5 pipeline benchmark lives at `evals/benchmark/v1.0.0/` (`n=14` matching cases). Run `PYTHONPATH=. python evals/benchmark/run.py`. It compares lexical vs TF-IDF vs hybrid matching, checks rubric stability and schema validity, and records a model decision. It does not download embedding or GGUF weights. Fine-tuning is not justified from this set.
 
+## Roadmap
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for shipped slices, CI/deploy next steps, and future work (mobile UI, overall UX, JD understanding).
+
 ## Future improvements
 
 - Flesh out roadmap / career-planning endpoints
