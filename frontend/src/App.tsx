@@ -80,14 +80,14 @@ function AppShell() {
           <Link to="/profile" aria-current={onProfile ? "page" : undefined}>
             Profile
           </Link>
-          <button className="secondary" type="button" onClick={logout}>
+          <button className="secondary nav-sign-out" type="button" onClick={logout}>
             Sign out
           </button>
         </nav>
       </header>
       {healthError ? <Banner tone="error">{healthError}</Banner> : null}
       {modelMissing ? <Banner tone="warn">{HONESTY_COPY.modelMissing}</Banner> : null}
-      <main id="main-content">
+      <main id="main-content" className="main-content">
         <Outlet />
       </main>
       <StudioFooter modelConfigured={modelConfigured} />

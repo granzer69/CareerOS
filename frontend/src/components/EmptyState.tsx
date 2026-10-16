@@ -11,9 +11,10 @@ export function EmptyState({
 }) {
   return (
     <div className="card empty-state">
+      <p className="eyebrow">Owner-scoped</p>
       <h1>{title}</h1>
-      <div>{children}</div>
-      {action ? <p>{action}</p> : null}
+      <div className="empty-state-body">{children}</div>
+      {action ? <p className="empty-state-action">{action}</p> : null}
     </div>
   );
 }
