@@ -260,6 +260,16 @@ export interface ProfileSkillCoverage {
   unknown: number;
 }
 
+export interface AnalysisJobRead {
+  id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  created_at: string;
+  updated_at: string;
+  analysis: ResumeAnalysisRead | null;
+  error_code: string | null;
+  error_detail: string | null;
+}
+
 export interface AnalyticsRead {
   analysis_count: number;
   requirement_count: number;

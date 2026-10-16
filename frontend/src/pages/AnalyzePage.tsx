@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getToken, request } from "../api";
+import { getToken, pollAnalysisJob, request } from "../api";
+import type { AnalysisJobRead } from "../types";
 import { isSessionExpiredError } from "../authRedirect";
 import { Banner } from "../components/Banner";
 import { StepList } from "../components/StepList";
@@ -40,10 +41,11 @@ export function AnalyzePage() {
     body.append("target_role", targetRole);
     body.append("job_description", jobDescription);
     try {
-      const analysis = await request<ResumeAnalysisRead>("/api/v1/resume/analyze", {
+      const job = await request<AnalysisJobRead>("/api/v1/resume/analyze-jobs", {
         method: "POST",
         body,
       });
+      const analysis = await pollAnalysisJob(job.id);
       navigate(`/analyses/${analysis.id}`);
     } catch (err) {
       if (isSessionExpiredError(err)) {

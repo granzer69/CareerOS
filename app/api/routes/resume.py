@@ -7,11 +7,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Form, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.errors import DomainError, domain_error_to_http_exception, internal_error_to_http_exception
+from app.api.errors import domain_error_to_http_exception, internal_error_to_http_exception
+from app.core.errors import DomainError
 from app.core.auth import get_current_user_id
 from app.core.database import get_db_session
+from app.schemas.analysis_job import AnalysisJobRead
 from app.schemas.analytics import AnalyticsRead
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
+from app.services.analysis_job_service import (
+    AnalysisJobNotFoundError,
+    create_analysis_job,
+    get_analysis_job,
+)
 from app.schemas.resume_edit import ResumeEditRead, ResumeVersionRead, ResumeVersionSummary
 from app.services.edit_service import EditService
 from app.services.resume_service import ResumeService
@@ -66,6 +73,59 @@ async def analyze_resume(
     except Exception as exc:
         logger.exception("Resume analysis failed")
         raise internal_error_to_http_exception() from exc
+
+
+@router.post(
+    "/analyze-jobs",
+    response_model=AnalysisJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Queue resume analysis (poll for result)",
+    description=(
+        "Same inputs as POST /analyze, but returns immediately with a job id. "
+        "Poll GET /resume/analyze-jobs/{job_id} until status is completed or failed. "
+        "Use this behind short-lived reverse proxies when local GGUF inference exceeds "
+        "their HTTP timeout."
+    ),
+)
+async def queue_analyze_resume(
+    file: UploadFile,
+    target_role: Annotated[str, Form(min_length=1, max_length=200)],
+    job_description: Annotated[str, Form(min_length=1, max_length=20000)],
+    current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> AnalysisJobRead:
+    try:
+        file_bytes = await file.read()
+        return await create_analysis_job(
+            user_id=current_user_id,
+            file_bytes=file_bytes,
+            file_name=file.filename or "unknown",
+            content_type=file.content_type or "",
+            target_role=target_role,
+            job_description=job_description,
+        )
+    except DomainError as exc:
+        raise domain_error_to_http_exception(exc) from exc
+    except Exception as exc:
+        logger.exception("Failed to queue resume analysis")
+        raise internal_error_to_http_exception() from exc
+
+
+@router.get(
+    "/analyze-jobs/{job_id}",
+    response_model=AnalysisJobRead,
+    status_code=status.HTTP_200_OK,
+    summary="Poll a queued resume analysis",
+)
+async def read_analyze_job(
+    job_id: UUID,
+    current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> AnalysisJobRead:
+    try:
+        return await get_analysis_job(job_id=job_id, user_id=current_user_id)
+    except AnalysisJobNotFoundError as exc:
+        raise domain_error_to_http_exception(
+            DomainError(detail="Analysis job not found", code="not_found", http_status=404)
+        ) from exc
 
 
 @router.get(
