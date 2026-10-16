@@ -242,6 +242,24 @@ export interface RequirementHeatCell {
   count: number;
 }
 
+export interface EligibilityRollup {
+  text: string;
+  confirmed_met: number;
+  confirmed_not_met: number;
+  unknown: number;
+  not_applicable: number;
+}
+
+export interface ProfileSkillCoverage {
+  skill: string;
+  requirement_mentions: number;
+  confirmed: number;
+  partial: number;
+  not_found: number;
+  contradicted: number;
+  unknown: number;
+}
+
 export interface AnalyticsRead {
   analysis_count: number;
   requirement_count: number;
@@ -259,6 +277,8 @@ export interface AnalyticsRead {
   requirement_heatmap: RequirementHeatCell[];
   importance_evidence: ImportanceEvidenceBucket[];
   role_coverage_matrix: RoleCoverageRow[];
+  eligibility_rollups: EligibilityRollup[];
+  profile_skill_coverage: ProfileSkillCoverage[];
 }
 
 export interface ApiError {

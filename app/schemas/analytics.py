@@ -124,6 +124,36 @@ class RoleCoverageRow(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class EligibilityRollup(BaseModel):
+    """Eligibility constraint text aggregated across owned analyses."""
+
+    text: str
+    confirmed_met: int = Field(..., ge=0)
+    confirmed_not_met: int = Field(..., ge=0)
+    unknown: int = Field(..., ge=0)
+    not_applicable: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class ProfileSkillCoverage(BaseModel):
+    """
+    How often JD requirement rows mention a profile skill string.
+
+    Matching is a simple normalized substring check — not semantic skill inference.
+    """
+
+    skill: str
+    requirement_mentions: int = Field(..., ge=0)
+    confirmed: int = Field(..., ge=0)
+    partial: int = Field(..., ge=0)
+    not_found: int = Field(..., ge=0)
+    contradicted: int = Field(..., ge=0)
+    unknown: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
 class RequirementHeatCell(BaseModel):
     """Requirement text × evidence state count within one target_role."""
 
@@ -154,5 +184,7 @@ class AnalyticsRead(BaseModel):
     requirement_heatmap: list[RequirementHeatCell] = Field(default_factory=list)
     importance_evidence: list[ImportanceEvidenceBucket] = Field(default_factory=list)
     role_coverage_matrix: list[RoleCoverageRow] = Field(default_factory=list)
+    eligibility_rollups: list[EligibilityRollup] = Field(default_factory=list)
+    profile_skill_coverage: list[ProfileSkillCoverage] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}

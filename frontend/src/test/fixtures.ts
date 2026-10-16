@@ -208,6 +208,26 @@ export const analyticsFixture: AnalyticsRead = {
       unknown: 0,
     },
   ],
+  eligibility_rollups: [
+    {
+      text: "US work authorization required",
+      confirmed_met: 0,
+      confirmed_not_met: 1,
+      unknown: 0,
+      not_applicable: 0,
+    },
+  ],
+  profile_skill_coverage: [
+    {
+      skill: "Python",
+      requirement_mentions: 1,
+      confirmed: 1,
+      partial: 0,
+      not_found: 0,
+      contradicted: 0,
+      unknown: 0,
+    },
+  ],
   requirement_heatmap: [
     {
       requirement_text: "Python",
@@ -256,4 +276,6 @@ export const emptyAnalyticsFixture: AnalyticsRead = {
   requirement_heatmap: [],
   importance_evidence: [],
   role_coverage_matrix: [],
+  eligibility_rollups: [],
+  profile_skill_coverage: [],
 };

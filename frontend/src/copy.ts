@@ -64,13 +64,18 @@ export const ANALYTICS_COPY = {
     "Top requirement texts from your JD matches, grouped by target_role and evidence state.",
   profileFilter:
     "Filter analytics to analyses whose target_role exactly matches your profile role.",
+  eligibility:
+    "Eligibility is tracked separately from weighted scores. confirmed_not_met can set blocked_by_requirement on an analysis.",
+  profileSkills:
+    "Substring match between profile skill text and JD requirement lines. Not semantic résumé parsing or a skill gap score.",
 } as const;
 
 export const PROFILE_COPY = {
   title: "Your profile",
   lead:
     "Save a default target role and experience level. Analyze can prefill the role field; analytics can filter to that role.",
-  skillsHint: "Comma-separated skills for your own reference. They do not change rubric scores.",
+  skillsHint:
+    "Comma-separated skills for your reference. Analytics can count JD lines that mention these strings — they do not change rubric scores.",
   experience: "Experience level is descriptive only — scores still come from the JD and resume evidence.",
   missing: "No profile yet. Save one to prefill Analyze and filter Analytics.",
 } as const;

@@ -12,6 +12,8 @@ import { ImportanceEvidenceChart } from "../components/ImportanceEvidenceChart";
 import { RequirementHeatmapTable } from "../components/RequirementHeatmapTable";
 import { RoleCoverageMatrix } from "../components/RoleCoverageMatrix";
 import { RubricTrendChart } from "../components/RubricTrendChart";
+import { EligibilityRollupTable } from "../components/EligibilityRollupTable";
+import { ProfileSkillCoverageTable } from "../components/ProfileSkillCoverageTable";
 import { TerminologyTrendChart } from "../components/TerminologyTrendChart";
 import { ScoreTrendChart } from "../components/ScoreTrendChart";
 import { VersionLiftTable } from "../components/VersionLiftTable";
@@ -152,6 +154,12 @@ export function AnalyticsPage() {
         requirementCount={data.requirement_count}
         rubricLabel={rubricLabel}
       />
+      <EligibilityRollupTable
+        rows={data.eligibility_rollups}
+        analysisCount={data.analysis_count}
+        rubricLabel={rubricLabel}
+      />
+      <ProfileSkillCoverageTable rows={data.profile_skill_coverage} rubricLabel={rubricLabel} />
       <EditFunnelCard data={data} rubricLabel={rubricLabel} />
       <VersionLiftTable rows={data.version_deltas} rubricLabel={rubricLabel} />
       <RequirementHeatmapTable cells={data.requirement_heatmap} rubricLabel={rubricLabel} />

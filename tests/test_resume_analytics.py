@@ -151,9 +151,9 @@ def test_analytics_empty_history_is_honest(
     db_session_mock: AsyncSession,
 ) -> None:
     """An owner with no analyses gets zeros, not fabricated scores or resume text."""
-    db_session_mock.execute.return_value = SimpleNamespace(
-        scalars=lambda: SimpleNamespace(all=lambda: [])
-    )
+    empty_analyses = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+    no_profile = SimpleNamespace(scalar_one_or_none=lambda: None)
+    db_session_mock.execute.side_effect = [empty_analyses, no_profile]
 
     response = resume_client.get("/resume/analytics")
 
@@ -171,6 +171,8 @@ def test_analytics_empty_history_is_honest(
     assert body["edits"]["total_edits"] == 0
     assert body["edit_kinds"] == []
     assert body["version_deltas"] == []
+    assert body["eligibility_rollups"] == []
+    assert body["profile_skill_coverage"] == []
     assert body["requirement_heatmap"] == []
     assert body["importance_evidence"] == []
     assert body["role_coverage_matrix"] == []
@@ -217,7 +219,13 @@ def test_analytics_aggregates_owned_rows_and_omits_resume_text(
     )
     analysis_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [newer, older]))
     empty_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
-    db_session_mock.execute.side_effect = [analysis_result, empty_result, empty_result]
+    profile_result = SimpleNamespace(scalar_one_or_none=lambda: None)
+    db_session_mock.execute.side_effect = [
+        analysis_result,
+        empty_result,
+        empty_result,
+        profile_result,
+    ]
 
     response = resume_client.get("/resume/analytics")
 
@@ -334,7 +342,13 @@ def test_analytics_target_role_query_filters_in_memory(
     )
     analysis_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [newer, older]))
     empty_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
-    db_session_mock.execute.side_effect = [analysis_result, empty_result, empty_result]
+    profile_result = SimpleNamespace(scalar_one_or_none=lambda: None)
+    db_session_mock.execute.side_effect = [
+        analysis_result,
+        empty_result,
+        empty_result,
+        profile_result,
+    ]
 
     response = resume_client.get("/resume/analytics?target_role=Data%20Engineer")
 
@@ -350,6 +364,32 @@ def test_build_analytics_never_copies_resume_text() -> None:
     dumped = payload.model_dump()
     assert "resume_text" not in dumped
     assert "SECRET RESUME TEXT" not in str(dumped)
+
+
+def test_build_analytics_eligibility_and_profile_skill_coverage() -> None:
+    """Eligibility rollups and profile skill mentions come from stored analysis rows."""
+    row = _row(
+        analysis_id=ANALYSIS_A,
+        created_at=CREATED_NEW,
+        requirement_matches=[
+            _match(evidence_state="confirmed", importance="mandatory", text="Python 3"),
+        ],
+    )
+    row.eligibility = [
+        {
+            "text": "Must be authorized to work in the US",
+            "status": "confirmed_not_met",
+            "rationale": "fixture",
+        }
+    ]
+    payload = build_analytics([row], profile_skills=["Python", "Rust"])
+    assert len(payload.eligibility_rollups) == 1
+    assert payload.eligibility_rollups[0].confirmed_not_met == 1
+    python_row = next(item for item in payload.profile_skill_coverage if item.skill == "Python")
+    assert python_row.requirement_mentions == 1
+    assert python_row.confirmed == 1
+    rust_row = next(item for item in payload.profile_skill_coverage if item.skill == "Rust")
+    assert rust_row.requirement_mentions == 0
 
 
 @pytest.mark.asyncio

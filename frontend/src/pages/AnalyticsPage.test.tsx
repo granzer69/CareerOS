@@ -56,6 +56,8 @@ describe("AnalyticsPage", () => {
     expect(screen.getByRole("heading", { name: "Edit funnel" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Evidence by JD importance" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /coverage matrix by role/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Eligibility constraints" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /profile skills vs jd mentions/i })).toBeInTheDocument();
     expect(screen.getAllByText("Data Engineer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getByRole("img", { name: /application-readiness trend/i })).toBeInTheDocument();

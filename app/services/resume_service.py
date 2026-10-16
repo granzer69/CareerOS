@@ -16,12 +16,15 @@ from app.ai.resume_analyzer import extract_requirements_with_model
 from app.core.errors import DomainError
 from app.models.resume_analysis import ResumeAnalysis
 from app.models.resume_edit import ResumeEdit, ResumeVersion
+from app.models.user_profile import UserProfile
 from app.schemas.analytics import (
     AnalyticsRead,
     EditKindCount,
     EditStats,
+    EligibilityRollup,
     EvidenceBucket,
     ImportanceEvidenceBucket,
+    ProfileSkillCoverage,
     RequirementHeatCell,
     RoleBreakdown,
     RoleCoverageRow,
@@ -384,7 +387,23 @@ class ResumeService:
             edit_rows = list(edit_result.scalars().all())
             version_rows = list(version_result.scalars().all())
 
-        return build_analytics(rows, edits=edit_rows, versions=version_rows)
+        profile_skills: list[str] = []
+        profile_stmt = select(UserProfile).where(UserProfile.user_id == user_id)
+        try:
+            profile_result = await self._db_session.execute(profile_stmt)
+            profile = profile_result.scalar_one_or_none()
+            if profile is not None and isinstance(profile.skills, list):
+                profile_skills = [str(skill) for skill in profile.skills if str(skill).strip()]
+        except (OperationalError, ProgrammingError) as exc:
+            _raise_if_schema_outdated(exc)
+            raise
+
+        return build_analytics(
+            rows,
+            edits=edit_rows,
+            versions=version_rows,
+            profile_skills=profile_skills,
+        )
 
 
 def _as_match_dicts(value: object) -> list[dict[str, object]]:
@@ -405,6 +424,108 @@ def _as_terms(value: object) -> list[str]:
             if cleaned:
                 terms.append(cleaned)
     return terms
+
+
+def _as_eligibility_dicts(value: object) -> list[dict[str, object]]:
+    """Return eligibility rows as dicts, ignoring malformed entries."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+ELIGIBILITY_STATUSES: tuple[str, ...] = (
+    "confirmed_met",
+    "confirmed_not_met",
+    "unknown",
+    "not_applicable",
+)
+
+
+def _normalize_skill_token(skill: str) -> str:
+    return " ".join(skill.strip().lower().split())
+
+
+def _skill_mentions_requirement(skill: str, requirement_text: str) -> bool:
+    """Substring match between a profile skill and a JD requirement line."""
+    normalized_skill = _normalize_skill_token(skill)
+    normalized_requirement = _normalize_skill_token(requirement_text)
+    if len(normalized_skill) < 2 or len(normalized_requirement) < 2:
+        return False
+    return (
+        normalized_skill in normalized_requirement
+        or normalized_requirement in normalized_skill
+    )
+
+
+def _build_eligibility_rollups(rows: list[object]) -> list[EligibilityRollup]:
+    """Aggregate eligibility items by constraint text across analyses."""
+    rollups: dict[str, dict[str, int]] = defaultdict(
+        lambda: {status: 0 for status in ELIGIBILITY_STATUSES}
+    )
+    for row in rows:
+        for item in _as_eligibility_dicts(getattr(row, "eligibility", None)):
+            text = str(item.get("text", "")).strip()
+            if not text:
+                continue
+            status = str(item.get("status", "unknown"))
+            if status not in ELIGIBILITY_STATUSES:
+                status = "unknown"
+            rollups[text][status] += 1
+    return [
+        EligibilityRollup(
+            text=text,
+            confirmed_met=counts["confirmed_met"],
+            confirmed_not_met=counts["confirmed_not_met"],
+            unknown=counts["unknown"],
+            not_applicable=counts["not_applicable"],
+        )
+        for text, counts in sorted(rollups.items(), key=lambda item: item[0].lower())
+    ]
+
+
+def _build_profile_skill_coverage(
+    rows: list[object],
+    profile_skills: list[str],
+) -> list[ProfileSkillCoverage]:
+    """
+    Count JD requirement rows whose text mentions each profile skill string.
+
+    Does not infer skills that never appear on a posting in this window.
+    """
+    seen_skills: list[str] = []
+    for skill in profile_skills:
+        cleaned = skill.strip()
+        if cleaned and cleaned not in seen_skills:
+            seen_skills.append(cleaned)
+    if not seen_skills:
+        return []
+
+    counters: dict[str, Counter[str]] = {
+        skill: Counter({state: 0 for state in EVIDENCE_STATES}) for skill in seen_skills
+    }
+    mention_totals: Counter[str] = Counter()
+
+    for row in rows:
+        for match in _as_match_dicts(getattr(row, "requirement_matches", None)):
+            requirement_text = str(match.get("text", ""))
+            state = _evidence_state(match.get("evidence_state"))
+            for skill in seen_skills:
+                if _skill_mentions_requirement(skill, requirement_text):
+                    counters[skill][state] += 1
+                    mention_totals[skill] += 1
+
+    return [
+        ProfileSkillCoverage(
+            skill=skill,
+            requirement_mentions=mention_totals[skill],
+            confirmed=counters[skill]["confirmed"],
+            partial=counters[skill]["partial"],
+            not_found=counters[skill]["not_found"],
+            contradicted=counters[skill]["contradicted"],
+            unknown=counters[skill]["unknown"],
+        )
+        for skill in seen_skills
+    ]
 
 
 def _evidence_state(value: object) -> str:
@@ -614,6 +735,7 @@ def build_analytics(
     *,
     edits: list[object] | None = None,
     versions: list[object] | None = None,
+    profile_skills: list[str] | None = None,
 ) -> AnalyticsRead:
     """
     Fold owned analysis rows into AnalyticsRead.
@@ -717,6 +839,8 @@ def build_analytics(
     requirement_heatmap = _build_requirement_heatmap(rows)
     importance_evidence = _build_importance_evidence(importance_counter)
     role_coverage_matrix = _build_role_coverage_matrix(rows)
+    eligibility_rollups = _build_eligibility_rollups(rows)
+    profile_skill_coverage = _build_profile_skill_coverage(rows, profile_skills or [])
     return AnalyticsRead(
         analysis_count=len(rows),
         requirement_count=requirement_count,
@@ -734,4 +858,6 @@ def build_analytics(
         requirement_heatmap=requirement_heatmap,
         importance_evidence=importance_evidence,
         role_coverage_matrix=role_coverage_matrix,
+        eligibility_rollups=eligibility_rollups,
+        profile_skill_coverage=profile_skill_coverage,
     )
