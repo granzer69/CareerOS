@@ -160,6 +160,46 @@ export const analyticsFixture: AnalyticsRead = {
     { term: "Kubernetes", count: 2 },
     { term: "Terraform", count: 1 },
   ],
+  edits: {
+    total_edits: 3,
+    pending: 1,
+    accepted: 1,
+    rejected: 1,
+    supported_rewrite_generated: 2,
+    supported_rewrite_accepted: 1,
+    supported_rewrite_rejected: 1,
+    supported_rewrite_accept_rate: 0.5,
+  },
+  edit_kinds: [
+    { kind: "supported_rewrite", count: 2 },
+    { kind: "unsupported", count: 1 },
+  ],
+  version_deltas: [
+    {
+      analysis_id: analysisFixture.id,
+      file_name: analysisFixture.file_name,
+      target_role: analysisFixture.target_role,
+      original_readiness: 72,
+      latest_version_readiness: 78,
+      delta: 6,
+      latest_version_number: 1,
+      rubric_version: "v1.0.0",
+    },
+  ],
+  requirement_heatmap: [
+    {
+      requirement_text: "Python",
+      target_role: "Backend Engineer",
+      evidence_state: "confirmed",
+      count: 1,
+    },
+    {
+      requirement_text: "Kubernetes",
+      target_role: "Backend Engineer",
+      evidence_state: "not_found",
+      count: 1,
+    },
+  ],
 };
 
 export const emptyAnalyticsFixture: AnalyticsRead = {
@@ -179,4 +219,17 @@ export const emptyAnalyticsFixture: AnalyticsRead = {
   scores: [],
   roles: [],
   missing_terminology: [],
+  edits: {
+    total_edits: 0,
+    pending: 0,
+    accepted: 0,
+    rejected: 0,
+    supported_rewrite_generated: 0,
+    supported_rewrite_accepted: 0,
+    supported_rewrite_rejected: 0,
+    supported_rewrite_accept_rate: null,
+  },
+  edit_kinds: [],
+  version_deltas: [],
+  requirement_heatmap: [],
 };

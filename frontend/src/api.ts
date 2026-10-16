@@ -1,6 +1,7 @@
 import type { ApiError } from "./types";
 
 const TOKEN_KEY = "careeros_token";
+const USER_ID_KEY = "careeros_user_id";
 
 export function apiBase(): string {
   const configured = import.meta.env.VITE_BACKEND_URL || "";
@@ -19,8 +20,22 @@ export function setToken(token: string): void {
   window.localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function getUserId(): string | null {
+  return window.localStorage.getItem(USER_ID_KEY);
+}
+
+export function setUserId(userId: string): void {
+  window.localStorage.setItem(USER_ID_KEY, userId);
+}
+
+export function setSession(token: string, userId: string): void {
+  setToken(token);
+  setUserId(userId);
+}
+
 export function clearToken(): void {
   window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(USER_ID_KEY);
 }
 
 export function parseApiError(payload: unknown, fallback: string): ApiError {
@@ -69,6 +84,8 @@ export function actionableMessage(error: ApiError): string {
       return "Invalid email or password.";
     case "schema_outdated":
       return "The local database schema is behind Alembic. Stop the API, delete leftover sqlite, run `alembic upgrade head`, then restart.";
+    case "not_found":
+      return "That resource was not found for your account.";
     default:
       return error.message;
   }

@@ -9,6 +9,7 @@ import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AnalyzePage } from "./pages/AnalyzePage";
 import { AuthPage } from "./pages/AuthPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import type { HealthStatus } from "./types";
 
 function RequireAuth() {
@@ -47,9 +48,11 @@ function AppShell() {
   const modelMissing = health?.local_model === "missing";
   const modelConfigured = health?.local_model === "configured";
   const onAnalytics = location.pathname === "/analytics";
+  const onProfile = location.pathname === "/profile";
+  const wideShell = onAnalytics || onProfile;
 
   return (
-    <div className={onAnalytics ? "shell shell-wide" : "shell"}>
+    <div className={wideShell ? "shell shell-wide" : "shell"}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
@@ -74,6 +77,9 @@ function AppShell() {
           >
             Analytics
           </Link>
+          <Link to="/profile" aria-current={onProfile ? "page" : undefined}>
+            Profile
+          </Link>
           <button className="secondary" type="button" onClick={logout}>
             Sign out
           </button>
@@ -97,6 +103,7 @@ export function App() {
         <Route path="/" element={<AnalyzePage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/analyses/:analysisId" element={<AnalysisDetailPage />} />
       </Route>
     </Routes>

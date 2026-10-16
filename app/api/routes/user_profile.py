@@ -26,6 +26,27 @@ async def get_user_profile_service(
     return UserProfileService(db_session=db_session)
 
 
+@router.get(
+    "/me",
+    response_model=UserProfileRead,
+    status_code=status.HTTP_200_OK,
+    summary="Read the authenticated user's profile",
+)
+async def get_my_user_profile(
+    service: Annotated[UserProfileService, Depends(get_user_profile_service)],
+    current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> UserProfileRead:
+    try:
+        return await service.get_user_profile(
+            current_user_id=current_user_id,
+            user_id=current_user_id,
+        )
+    except DomainError as exc:
+        raise domain_error_to_http_exception(exc) from exc
+    except Exception as exc:
+        raise internal_error_to_http_exception() from exc
+
+
 @router.post(
     "/{user_id}",
     response_model=UserProfileRead,

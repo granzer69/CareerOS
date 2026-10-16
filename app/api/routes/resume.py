@@ -82,9 +82,13 @@ async def analyze_resume(
 async def get_resume_analytics(
     service: Annotated[ResumeService, Depends(get_resume_service)],
     current_user_id: Annotated[UUID, Depends(get_current_user_id)],
+    target_role: Annotated[str | None, Query(max_length=200)] = None,
 ) -> AnalyticsRead:
     try:
-        return await service.get_analytics_for_user(user_id=current_user_id)
+        return await service.get_analytics_for_user(
+            user_id=current_user_id,
+            target_role=target_role,
+        )
     except DomainError as exc:
         raise domain_error_to_http_exception(exc) from exc
     except Exception as exc:

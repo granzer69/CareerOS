@@ -56,6 +56,8 @@ def test_frontend_uses_bearer_auth_and_real_analysis_fields() -> None:
     assert "/analytics" in app_source
     assert "AnalyticsRead" in types_source
     assert "/api/v1/resume/analytics" in (SRC / "pages" / "AnalyticsPage.tsx").read_text(encoding="utf-8")
+    assert "/profile" in app_source
+    assert "/api/v1/user-profile/me" in (SRC / "pages" / "ProfilePage.tsx").read_text(encoding="utf-8")
 
 
 def test_checked_in_dist_is_copilot_not_placement_app() -> None:

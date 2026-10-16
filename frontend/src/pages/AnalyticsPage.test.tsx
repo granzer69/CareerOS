@@ -18,7 +18,12 @@ describe("AnalyticsPage", () => {
   });
 
   it("shows an empty state instead of fabricated charts when n=0", async () => {
-    mockedRequest.mockResolvedValue(emptyAnalyticsFixture);
+    mockedRequest.mockImplementation(async (path: string) => {
+      if (path.includes("/user-profile/me")) {
+        throw Object.assign(new Error("not found"), { code: "not_found" });
+      }
+      return emptyAnalyticsFixture;
+    });
     render(
       <MemoryRouter>
         <AnalyticsPage />
@@ -33,7 +38,12 @@ describe("AnalyticsPage", () => {
   });
 
   it("renders not_found counts and omits null readiness as a dash", async () => {
-    mockedRequest.mockResolvedValue(analyticsFixture);
+    mockedRequest.mockImplementation(async (path: string) => {
+      if (path.includes("/user-profile/me")) {
+        throw Object.assign(new Error("not found"), { code: "not_found" });
+      }
+      return analyticsFixture;
+    });
     render(
       <MemoryRouter>
         <AnalyticsPage />
@@ -42,7 +52,8 @@ describe("AnalyticsPage", () => {
     expect(await screen.findByRole("heading", { name: "Evidence mix" })).toBeInTheDocument();
     expect(screen.getByText("not_found")).toBeInTheDocument();
     expect(screen.getAllByText("2").length).toBeGreaterThan(0);
-    expect(screen.getByText("Kubernetes")).toBeInTheDocument();
+    expect(screen.getAllByText("Kubernetes").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Edit funnel" })).toBeInTheDocument();
     expect(screen.getAllByText("Data Engineer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getByRole("img", { name: /application-readiness trend/i })).toBeInTheDocument();

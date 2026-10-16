@@ -1,32 +1,53 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { request } from "../api";
 import { isSessionExpiredError } from "../authRedirect";
 import { Banner } from "../components/Banner";
+import { EditFunnelCard } from "../components/EditFunnelCard";
 import { EmptyState } from "../components/EmptyState";
 import { EvidenceMixChart } from "../components/EvidenceMixChart";
 import { KpiTile } from "../components/KpiTile";
 import { LoadingState } from "../components/LoadingState";
+import { RequirementHeatmapTable } from "../components/RequirementHeatmapTable";
+import { RubricTrendChart } from "../components/RubricTrendChart";
 import { ScoreTrendChart } from "../components/ScoreTrendChart";
+import { VersionLiftTable } from "../components/VersionLiftTable";
 import { ANALYTICS_COPY, HONESTY_COPY, STUDIO_COPY } from "../copy";
-import type { AnalyticsRead } from "../types";
+import type { AnalyticsRead, UserProfileRead } from "../types";
 
 export function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsRead | null>(null);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
+  const [useProfileFilter, setUseProfileFilter] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
 
+  const loadAnalytics = useCallback(async () => {
+    const query =
+      useProfileFilter && profileRole
+        ? `?target_role=${encodeURIComponent(profileRole)}`
+        : "";
+    const payload = await request<AnalyticsRead>(`/api/v1/resume/analytics${query}`);
+    setData(payload);
+  }, [profileRole, useProfileFilter]);
+
   useEffect(() => {
-    void request<AnalyticsRead>("/api/v1/resume/analytics")
-      .then(setData)
-      .catch((err: unknown) => {
-        if (isSessionExpiredError(err)) {
-          setExpired(true);
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Could not load analytics");
+    void request<UserProfileRead>("/api/v1/user-profile/me")
+      .then((profile) => setProfileRole(profile.target_role))
+      .catch(() => {
+        setProfileRole(null);
       });
   }, []);
+
+  useEffect(() => {
+    void loadAnalytics().catch((err: unknown) => {
+      if (isSessionExpiredError(err)) {
+        setExpired(true);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Could not load analytics");
+    });
+  }, [loadAnalytics]);
 
   if (expired) {
     return <Navigate to="/login" replace />;
@@ -41,6 +62,14 @@ export function AnalyticsPage() {
     return (
       <EmptyState title="Your evidence, over time" action={<Link to="/">Go to analyze</Link>}>
         <p>{STUDIO_COPY.emptyAnalytics}</p>
+        {useProfileFilter && profileRole ? (
+          <p className="footnote">
+            No analyses match profile role “{profileRole}”.{" "}
+            <button className="secondary" type="button" onClick={() => setUseProfileFilter(false)}>
+              Show all roles
+            </button>
+          </p>
+        ) : null}
       </EmptyState>
     );
   }
@@ -60,6 +89,23 @@ export function AnalyticsPage() {
         <h1>Your evidence, over time</h1>
         <p className="muted">{HONESTY_COPY.analyticsScope}</p>
         <p className="footnote">Latest analysis {latest} · {rubricLabel}</p>
+        {profileRole ? (
+          <p className="row filter-row">
+            <button
+              className="secondary"
+              type="button"
+              aria-pressed={useProfileFilter}
+              onClick={() => setUseProfileFilter((value) => !value)}
+            >
+              {useProfileFilter ? "Showing" : "Filter to"} profile role: {profileRole}
+            </button>
+            <span className="footnote">{ANALYTICS_COPY.profileFilter}</span>
+          </p>
+        ) : (
+          <p className="footnote">
+            <Link to="/profile">Add a profile</Link> to prefill Analyze and filter this view.
+          </p>
+        )}
       </header>
 
       <div className="scores">
@@ -79,7 +125,7 @@ export function AnalyticsPage() {
           label="Mandatory gaps"
           value={data.mandatory_gap_count}
           note={ANALYTICS_COPY.gaps}
-          nLabel={`${rubricLabel}`}
+          nLabel={rubricLabel}
         />
         <KpiTile
           label="Blocked analyses"
@@ -89,12 +135,16 @@ export function AnalyticsPage() {
         />
       </div>
 
+      <RubricTrendChart points={data.scores} rubricLabel={rubricLabel} />
       <ScoreTrendChart points={data.scores} rubricLabel={rubricLabel} />
       <EvidenceMixChart
         buckets={data.evidence}
         requirementCount={data.requirement_count}
         rubricLabel={rubricLabel}
       />
+      <EditFunnelCard data={data} rubricLabel={rubricLabel} />
+      <VersionLiftTable rows={data.version_deltas} rubricLabel={rubricLabel} />
+      <RequirementHeatmapTable cells={data.requirement_heatmap} rubricLabel={rubricLabel} />
 
       <section className="card">
         <h2>Roles you analyzed</h2>

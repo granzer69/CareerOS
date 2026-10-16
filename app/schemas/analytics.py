@@ -54,6 +54,56 @@ class TermCount(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class EditKindCount(BaseModel):
+    """Edit suggestions grouped by kind."""
+
+    kind: str
+    count: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class EditStats(BaseModel):
+    """Owner-scoped edit funnel for supported rewrites."""
+
+    total_edits: int = Field(..., ge=0)
+    pending: int = Field(..., ge=0)
+    accepted: int = Field(..., ge=0)
+    rejected: int = Field(..., ge=0)
+    supported_rewrite_generated: int = Field(..., ge=0)
+    supported_rewrite_accepted: int = Field(..., ge=0)
+    supported_rewrite_rejected: int = Field(..., ge=0)
+    supported_rewrite_accept_rate: float | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class VersionDelta(BaseModel):
+    """Original analysis readiness vs latest accepted version."""
+
+    analysis_id: UUID
+    file_name: str
+    target_role: str
+    original_readiness: int | None = None
+    latest_version_readiness: int | None = None
+    delta: int | None = None
+    latest_version_number: int | None = None
+    rubric_version: str | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class RequirementHeatCell(BaseModel):
+    """Requirement text × evidence state count within one target_role."""
+
+    requirement_text: str
+    target_role: str
+    evidence_state: str
+    count: int = Field(..., ge=1)
+
+    model_config = {"extra": "forbid"}
+
+
 class AnalyticsRead(BaseModel):
     """Owner-scoped analytics. Not a hiring probability or cross-user benchmark."""
 
@@ -67,5 +117,9 @@ class AnalyticsRead(BaseModel):
     scores: list[ScorePoint]
     roles: list[RoleBreakdown]
     missing_terminology: list[TermCount] = Field(default_factory=list)
+    edits: EditStats
+    edit_kinds: list[EditKindCount] = Field(default_factory=list)
+    version_deltas: list[VersionDelta] = Field(default_factory=list)
+    requirement_heatmap: list[RequirementHeatCell] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}

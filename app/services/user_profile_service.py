@@ -32,6 +32,30 @@ class UserProfileService:
     def __init__(self, db_session: AsyncSession) -> None:
         self._db_session = db_session
 
+    async def get_user_profile(
+        self,
+        *,
+        current_user_id: UUID,
+        user_id: UUID,
+    ) -> UserProfileRead:
+        """Return the caller's profile. Other users' ids are forbidden."""
+        if current_user_id != user_id:
+            raise UserProfileForbiddenError(
+                detail="Not allowed to read another user's profile",
+                code="forbidden",
+                http_status=403,
+            )
+        stmt = select(UserProfile).where(UserProfile.user_id == user_id)
+        result = await self._db_session.execute(stmt)
+        profile = result.scalar_one_or_none()
+        if profile is None:
+            raise UserProfileNotFoundError(
+                detail="User profile does not exist for this user_id",
+                code="not_found",
+                http_status=404,
+            )
+        return UserProfileRead.model_validate(profile)
+
     async def upsert_user_profile(
         self,
         *,

@@ -135,6 +135,13 @@ select {
   font-family: var(--ui);
 }
 
+select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
 button,
 .button {
   background: var(--brand);
@@ -440,6 +447,49 @@ pre {
 .chart-line {
   stroke: var(--brand);
   stroke-width: 2.5;
+}
+
+.chart-line.fit {
+  stroke: var(--brand-2);
+}
+
+.chart-line.alignment {
+  stroke: var(--warn);
+}
+
+.chart-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  font-family: var(--ui);
+  font-size: 0.9rem;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 20px;
+  height: 0;
+  border-top: 3px solid var(--brand);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.legend-swatch.fit {
+  border-top-style: dashed;
+  border-color: var(--brand-2);
+}
+
+.legend-swatch.alignment {
+  border-top-style: dotted;
+  border-color: var(--warn);
+}
+
+.filter-row {
+  margin-top: 12px;
+  align-items: baseline;
 }
 
 .chart-point {

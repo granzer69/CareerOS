@@ -54,4 +54,23 @@ export const ANALYTICS_COPY = {
     "Count of requirement matches by evidence state: confirmed, partial, not_found, contradicted, unknown.",
   roles: "Evidence mix grouped by the target_role you typed. Average readiness skips analyses with a null rubric score.",
   terms: "Strings that appeared in keywords_missing. Terminology coverage is not a vendor ATS pass or fail.",
+  fitAlignment:
+    "Job-fit and resume-alignment over time. Null rubric scores are omitted from the chart, not drawn as zero.",
+  editFunnel:
+    "Supported-rewrite accept rate = accepted ÷ (accepted + rejected). Pending suggestions are excluded from the rate.",
+  versionLift:
+    "Original application-readiness vs the latest accepted resume version for the same analysis. Not a hiring forecast.",
+  heatmap:
+    "Top requirement texts from your JD matches, grouped by target_role and evidence state.",
+  profileFilter:
+    "Filter analytics to analyses whose target_role exactly matches your profile role.",
+} as const;
+
+export const PROFILE_COPY = {
+  title: "Your profile",
+  lead:
+    "Save a default target role and experience level. Analyze can prefill the role field; analytics can filter to that role.",
+  skillsHint: "Comma-separated skills for your own reference. They do not change rubric scores.",
+  experience: "Experience level is descriptive only — scores still come from the JD and resume evidence.",
+  missing: "No profile yet. Save one to prefill Analyze and filter Analytics.",
 } as const;

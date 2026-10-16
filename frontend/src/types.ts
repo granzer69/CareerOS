@@ -13,10 +13,34 @@ export type EditKind =
   | "needs_evidence";
 export type EditStatus = "pending" | "accepted" | "rejected";
 
+export type ExperienceLevel = "student" | "junior" | "mid";
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
   user_id: string;
+}
+
+export interface UserProfileRead {
+  id: string;
+  user_id: string;
+  skills: string[];
+  target_role: string;
+  experience_level: ExperienceLevel;
+  created_at: string;
+}
+
+export interface UserProfileCreate {
+  user_id: string;
+  skills: string[];
+  target_role: string;
+  experience_level: ExperienceLevel;
+}
+
+export interface UserProfileUpdate {
+  skills?: string[];
+  target_role?: string;
+  experience_level?: ExperienceLevel;
 }
 
 export interface HealthStatus {
@@ -161,6 +185,40 @@ export interface TermCount {
   count: number;
 }
 
+export interface EditKindCount {
+  kind: string;
+  count: number;
+}
+
+export interface EditStats {
+  total_edits: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+  supported_rewrite_generated: number;
+  supported_rewrite_accepted: number;
+  supported_rewrite_rejected: number;
+  supported_rewrite_accept_rate: number | null;
+}
+
+export interface VersionDelta {
+  analysis_id: string;
+  file_name: string;
+  target_role: string;
+  original_readiness: number | null;
+  latest_version_readiness: number | null;
+  delta: number | null;
+  latest_version_number: number | null;
+  rubric_version: string | null;
+}
+
+export interface RequirementHeatCell {
+  requirement_text: string;
+  target_role: string;
+  evidence_state: EvidenceState;
+  count: number;
+}
+
 export interface AnalyticsRead {
   analysis_count: number;
   requirement_count: number;
@@ -172,6 +230,10 @@ export interface AnalyticsRead {
   scores: ScorePoint[];
   roles: RoleBreakdown[];
   missing_terminology: TermCount[];
+  edits: EditStats;
+  edit_kinds: EditKindCount[];
+  version_deltas: VersionDelta[];
+  requirement_heatmap: RequirementHeatCell[];
 }
 
 export interface ApiError {

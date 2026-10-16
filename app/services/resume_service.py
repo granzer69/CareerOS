@@ -15,12 +15,17 @@ from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
 from app.ai.resume_analyzer import extract_requirements_with_model
 from app.core.errors import DomainError
 from app.models.resume_analysis import ResumeAnalysis
+from app.models.resume_edit import ResumeEdit, ResumeVersion
 from app.schemas.analytics import (
     AnalyticsRead,
+    EditKindCount,
+    EditStats,
     EvidenceBucket,
+    RequirementHeatCell,
     RoleBreakdown,
     ScorePoint,
     TermCount,
+    VersionDelta,
 )
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 from app.services.evidence_matcher import match_requirements
@@ -38,6 +43,7 @@ EVIDENCE_STATES: tuple[str, ...] = (
 )
 MANDATORY_GAP_STATES: frozenset[str] = frozenset({"not_found", "contradicted"})
 MISSING_TERM_LIMIT: int = 15
+HEATMAP_CELL_LIMIT: int = 48
 
 MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
 MAX_JOB_DESCRIPTION_CHARS: int = 20_000
@@ -327,12 +333,18 @@ class ResumeService:
         )
         return ResumeAnalysisRead.model_validate(record)
 
-    async def get_analytics_for_user(self, *, user_id: UUID) -> AnalyticsRead:
+    async def get_analytics_for_user(
+        self,
+        *,
+        user_id: UUID,
+        target_role: str | None = None,
+    ) -> AnalyticsRead:
         """
         Aggregate the caller's analyses into owner-scoped analytics.
 
         Uses the same owner filter and 100-row cap as history. Omits resume
-        text and does not mix in other users' rows.
+        text and does not mix in other users' rows. Optional target_role
+        filters the in-memory window before aggregates are computed.
         """
         stmt = (
             select(ResumeAnalysis)
@@ -346,7 +358,29 @@ class ResumeService:
             _raise_if_schema_outdated(exc)
             raise
         rows = list(result.scalars().all())
-        return build_analytics(rows)
+        if target_role is not None:
+            trimmed = target_role.strip()
+            if trimmed:
+                rows = [row for row in rows if getattr(row, "target_role", "") == trimmed]
+
+        analysis_ids = [row.id for row in rows]
+        edit_rows: list[ResumeEdit] = []
+        version_rows: list[ResumeVersion] = []
+        if analysis_ids:
+            edit_stmt = select(ResumeEdit).where(
+                ResumeEdit.user_id == user_id,
+                ResumeEdit.analysis_id.in_(analysis_ids),
+            )
+            version_stmt = select(ResumeVersion).where(
+                ResumeVersion.user_id == user_id,
+                ResumeVersion.analysis_id.in_(analysis_ids),
+            )
+            edit_result = await self._db_session.execute(edit_stmt)
+            version_result = await self._db_session.execute(version_stmt)
+            edit_rows = list(edit_result.scalars().all())
+            version_rows = list(version_result.scalars().all())
+
+        return build_analytics(rows, edits=edit_rows, versions=version_rows)
 
 
 def _as_match_dicts(value: object) -> list[dict[str, object]]:
@@ -376,7 +410,140 @@ def _evidence_state(value: object) -> str:
     return "unknown"
 
 
-def build_analytics(rows: list[object]) -> AnalyticsRead:
+def _empty_edit_stats() -> EditStats:
+    return EditStats(
+        total_edits=0,
+        pending=0,
+        accepted=0,
+        rejected=0,
+        supported_rewrite_generated=0,
+        supported_rewrite_accepted=0,
+        supported_rewrite_rejected=0,
+        supported_rewrite_accept_rate=None,
+    )
+
+
+def _build_edit_stats(edits: list[object]) -> tuple[EditStats, list[EditKindCount]]:
+    """Summarize owned edit rows for funnel metrics."""
+    kind_counter: Counter[str] = Counter()
+    pending = 0
+    accepted = 0
+    rejected = 0
+    supported_generated = 0
+    supported_accepted = 0
+    supported_rejected = 0
+    for edit in edits:
+        kind = str(getattr(edit, "kind", "unknown"))
+        status = str(getattr(edit, "status", "pending"))
+        kind_counter[kind] += 1
+        if status == "pending":
+            pending += 1
+        elif status == "accepted":
+            accepted += 1
+        elif status == "rejected":
+            rejected += 1
+        if kind == "supported_rewrite":
+            supported_generated += 1
+            if status == "accepted":
+                supported_accepted += 1
+            elif status == "rejected":
+                supported_rejected += 1
+    reviewed_supported = supported_accepted + supported_rejected
+    accept_rate = (
+        round(supported_accepted / reviewed_supported, 3) if reviewed_supported > 0 else None
+    )
+    stats = EditStats(
+        total_edits=len(edits),
+        pending=pending,
+        accepted=accepted,
+        rejected=rejected,
+        supported_rewrite_generated=supported_generated,
+        supported_rewrite_accepted=supported_accepted,
+        supported_rewrite_rejected=supported_rejected,
+        supported_rewrite_accept_rate=accept_rate,
+    )
+    kinds = [
+        EditKindCount(kind=kind, count=count)
+        for kind, count in sorted(kind_counter.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    return stats, kinds
+
+
+def _readiness_score(row: object) -> int | None:
+    readiness = getattr(row, "application_readiness_score", None)
+    if isinstance(readiness, int):
+        return readiness
+    overall = getattr(row, "overall_score", None)
+    if isinstance(overall, int):
+        return overall
+    return None
+
+
+def _build_version_deltas(rows: list[object], versions: list[object]) -> list[VersionDelta]:
+    """Compare original analysis readiness to the latest accepted version."""
+    row_by_id = {getattr(row, "id"): row for row in rows}
+    by_analysis: dict[object, list[object]] = defaultdict(list)
+    for version in versions:
+        by_analysis[getattr(version, "analysis_id")].append(version)
+    deltas: list[VersionDelta] = []
+    for analysis_id, version_list in by_analysis.items():
+        row = row_by_id.get(analysis_id)
+        if row is None or not version_list:
+            continue
+        latest = max(version_list, key=lambda item: int(getattr(item, "version_number", 0)))
+        original = _readiness_score(row)
+        latest_readiness = _readiness_score(latest)
+        delta: int | None = None
+        if original is not None and latest_readiness is not None:
+            delta = latest_readiness - original
+        deltas.append(
+            VersionDelta(
+                analysis_id=analysis_id,
+                file_name=str(getattr(row, "file_name", "")),
+                target_role=str(getattr(row, "target_role", "")),
+                original_readiness=original,
+                latest_version_readiness=latest_readiness,
+                delta=delta,
+                latest_version_number=int(getattr(latest, "version_number", 0)),
+                rubric_version=getattr(latest, "rubric_version", None),
+            )
+        )
+    return sorted(deltas, key=lambda item: item.file_name.lower())
+
+
+def _build_requirement_heatmap(rows: list[object]) -> list[RequirementHeatCell]:
+    """Top requirement × role × evidence_state cells from stored matches."""
+    cell_counter: Counter[tuple[str, str, str]] = Counter()
+    for row in rows:
+        role = str(getattr(row, "target_role", "") or "Unknown")
+        for match in _as_match_dicts(getattr(row, "requirement_matches", None)):
+            text = match.get("text")
+            if not isinstance(text, str):
+                continue
+            requirement = text.strip()[:120]
+            if not requirement:
+                continue
+            state = _evidence_state(match.get("evidence_state"))
+            cell_counter[(requirement, role, state)] += 1
+    return [
+        RequirementHeatCell(
+            requirement_text=key[0],
+            target_role=key[1],
+            evidence_state=key[2],
+            count=count,
+        )
+        for key, count in sorted(cell_counter.items(), key=lambda item: (-item[1], item[0]))[
+            :HEATMAP_CELL_LIMIT
+        ]
+    ]
+
+
+def build_analytics(
+    rows: list[object],
+    *,
+    edits: list[object] | None = None,
+    versions: list[object] | None = None,
+) -> AnalyticsRead:
     """
     Fold owned analysis rows into AnalyticsRead.
 
@@ -469,6 +636,11 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
             :MISSING_TERM_LIMIT
         ]
     ]
+    edit_stats, edit_kinds = (
+        _build_edit_stats(edits) if edits else (_empty_edit_stats(), [])
+    )
+    version_deltas = _build_version_deltas(rows, versions or [])
+    requirement_heatmap = _build_requirement_heatmap(rows)
     return AnalyticsRead(
         analysis_count=len(rows),
         requirement_count=requirement_count,
@@ -480,4 +652,8 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
         scores=score_points,
         roles=roles,
         missing_terminology=missing_terminology,
+        edits=edit_stats,
+        edit_kinds=edit_kinds,
+        version_deltas=version_deltas,
+        requirement_heatmap=requirement_heatmap,
     )
