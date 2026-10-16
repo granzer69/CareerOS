@@ -2,7 +2,7 @@
   --bg: #f3eee3;
   --bg-accent: #ece4d4;
   --ink: #1c1914;
-  --muted: #5c564c;
+  --muted: #4a443b;
   --line: #d7cfc0;
   --paper: #fffcf6;
   --brand: #1f4d3a;
@@ -57,6 +57,13 @@ a {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+  position: relative;
+  z-index: 1;
 }
 
 .shell {
@@ -224,6 +231,7 @@ button:disabled {
   border-radius: 18px;
   padding: 22px 24px;
   box-shadow: var(--shadow);
+  overflow: visible;
 }
 
 .card > h1:first-child,
@@ -433,10 +441,16 @@ pre {
   font-size: 0.88rem;
 }
 
-.footnote {
+.footnote,
+.field-hint {
   font-size: 0.85rem;
   color: var(--muted);
-  margin-top: 8px;
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+.field-hint {
+  display: block;
 }
 
 .sr-only {
@@ -472,6 +486,13 @@ pre {
 
 .page-intro h1 {
   margin: 0 0 8px;
+}
+
+.empty-state-icon {
+  color: var(--brand);
+  opacity: 0.85;
+  margin: 0 auto 12px;
+  width: fit-content;
 }
 
 .empty-state {
@@ -824,6 +845,10 @@ pre {
 }
 
 @media (max-width: 720px) {
+  .lead {
+    line-height: 1.6;
+  }
+
   .diff,
   .topbar,
   .auth-layout,

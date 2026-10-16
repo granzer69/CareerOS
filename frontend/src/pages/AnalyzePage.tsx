@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getToken, pollAnalysisJob, request } from "../api";
+import { getToken, pollAnalysisJob, request, userFacingErrorMessage } from "../api";
 import type { AnalysisJobRead } from "../types";
 import { isSessionExpiredError } from "../authRedirect";
 import { Banner } from "../components/Banner";
@@ -57,7 +57,9 @@ export function AnalyzePage() {
         navigate("/login", { replace: true });
         return;
       }
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(
+        err instanceof Error ? userFacingErrorMessage(err.message) : "Analysis failed. Please try again.",
+      );
     } finally {
       setPending(false);
     }
@@ -81,13 +83,14 @@ export function AnalyzePage() {
         {error ? <Banner tone="error">{error}</Banner> : null}
         <form className="grid" onSubmit={onSubmit} aria-busy={pending}>
           <label htmlFor="resume-file">
-            Resume (PDF or DOCX, max 5 MB)
+            Resume
             <input
               id="resume-file"
               type="file"
               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
+            <span className="field-hint">PDF or DOCX, 5 MB max.</span>
             {file ? <span className="footnote">Selected: {file.name}</span> : null}
           </label>
         <label htmlFor="target-role">
@@ -101,11 +104,11 @@ export function AnalyzePage() {
             placeholder="e.g. Software engineering intern"
           />
           {profileRole ? (
-            <span className="footnote">
-              Prefilled from your <Link to="/profile">profile</Link> when empty. You can override per posting.
+            <span className="field-hint">
+              Prefilled from your <Link to="/profile">profile</Link>. Override per posting if needed.
             </span>
           ) : (
-            <span className="footnote">
+            <span className="field-hint">
               <Link to="/profile">Save a profile</Link> to prefill this field next time.
             </span>
           )}

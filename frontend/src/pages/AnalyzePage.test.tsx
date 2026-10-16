@@ -46,7 +46,8 @@ describe("AnalyzePage", () => {
       </MemoryRouter>,
     );
     const file = new File(["%PDF-fake"], "cv.pdf", { type: "application/pdf" });
-    const input = screen.getByLabelText(/resume \(pdf or docx/i) as HTMLInputElement;
+    const input = document.getElementById("resume-file") as HTMLInputElement;
+    expect(input).toBeTruthy();
     fireEvent.change(input, { target: { files: [file] } });
     await user.type(screen.getByLabelText(/target role/i), "Backend Engineer");
     await user.type(screen.getByLabelText(/job description/i), "Required: Python");

@@ -30,7 +30,7 @@ describe("AnalyticsPage", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole("heading", { name: /your evidence, over time/i })).toBeInTheDocument();
-    expect(screen.getByText(/analytics stay empty/i)).toBeInTheDocument();
+    expect(screen.getByText(/run an analysis first/i)).toBeInTheDocument();
     expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
     const text = document.body.textContent?.toLowerCase() ?? "";
     expect(text).not.toContain("placement probability");

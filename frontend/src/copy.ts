@@ -26,7 +26,7 @@ export const STUDIO_COPY = {
   brandMark: "CareerOS",
   brandLine: "Campus resume studio",
   brandSub: "JD-driven resume copilot",
-  heroTitle: "See what a real posting already supports on your resume",
+  heroTitle: "Match your resume to real job postings",
   heroLead:
     "Paste the job description you are actually applying to. CareerOS maps each requirement to evidence on your PDF or DOCX — then scores job-fit, resume-alignment, and application-readiness with rubric v1.0.0.",
   whoFor:
@@ -36,9 +36,9 @@ export const STUDIO_COPY = {
   stepJd: "Paste the full job description so required skills stay explicit.",
   stepRead: "Read evidence states, then apply only supported rewrites.",
   emptyHistory:
-    "No analyses yet. Run one with a resume and a real job description — empty history is honest, not a reason to invent rows.",
+    "No analyses yet. Run your first analysis with a resume and the full job description to see results here.",
   emptyAnalytics:
-    "Analytics stay empty until you run an analysis. CareerOS will not fill charts with sample scores or other students' data.",
+    "Run an analysis first. Charts use only your analyses — never sample scores or other students' data.",
   footer:
     "Owner-scoped analyses. Local GGUF when configured. Rubric scores, not a hosted LLM and not a hiring forecast.",
 } as const;

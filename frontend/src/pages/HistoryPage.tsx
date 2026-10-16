@@ -37,7 +37,7 @@ export function HistoryPage() {
   if (rows.length === 0) {
     return (
       <EmptyState title="History" action={<Link to="/">Go to analyze</Link>}>
-        <p>No analyses yet. {STUDIO_COPY.emptyHistory}</p>
+        <p>{STUDIO_COPY.emptyHistory}</p>
       </EmptyState>
     );
   }

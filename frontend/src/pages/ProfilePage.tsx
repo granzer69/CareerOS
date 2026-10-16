@@ -126,7 +126,7 @@ export function ProfilePage() {
             id="profile-skills"
             value={skillsText}
             onChange={(event) => setSkillsText(event.target.value)}
-            placeholder="Python, SQL, teamwork"
+            placeholder="e.g. Python, React, SQL"
           />
           <span className="footnote">{PROFILE_COPY.skillsHint}</span>
         </label>
