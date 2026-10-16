@@ -62,4 +62,9 @@ async def apply_startup_migrations() -> None:
     """Run Alembic when RUN_MIGRATIONS is enabled. Render uses its pre-deploy command instead."""
     if not settings.RUN_MIGRATIONS:
         return
-    await asyncio.to_thread(upgrade_database)
+    try:
+        await asyncio.to_thread(upgrade_database)
+    except RuntimeError:
+        logger.exception(
+            "Startup migration failed. The API will keep serving; database calls may fail until the connection is fixed."
+        )

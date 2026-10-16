@@ -20,6 +20,22 @@ def test_direct_database_url_strips_neon_pooler_host() -> None:
     assert direct_database_url("postgresql://user:secret@localhost/careeros").endswith("@localhost/careeros")
 
 
+def test_startup_migrations_log_and_continue_when_upgrade_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failed startup migration must not crash the API process."""
+
+    def _fail() -> None:
+        raise RuntimeError("Alembic upgrade failed")
+
+    monkeypatch.setattr(settings, "RUN_MIGRATIONS", True)
+    monkeypatch.setattr("app.core.migrations.upgrade_database", _fail)
+    with caplog.at_level(logging.ERROR):
+        asyncio.run(apply_startup_migrations())
+    assert "Startup migration failed" in caplog.text
+
+
 def test_startup_migrations_skip_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     """Render keeps using its pre-deploy command, so startup stays a no-op by default."""
     monkeypatch.setattr(settings, "RUN_MIGRATIONS", False)
