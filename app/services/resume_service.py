@@ -32,6 +32,7 @@ from app.schemas.analytics import (
     TermCount,
     VersionDelta,
 )
+from app.schemas.evidence import ModelExtraction
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 from app.services.evidence_matcher import match_requirements
 from app.services.jd_extraction import derive_target_role, extract_requirements, merge_requirements
@@ -236,11 +237,12 @@ class ResumeService:
                 http_status=503,
             ) from exc
         except ValueError as exc:
-            raise ResumeAnalysisFailedError(
-                detail="Model output was not valid analysis JSON",
-                code="analysis_failed",
-                http_status=422,
-            ) from exc
+            logger.warning(
+                "Local model extraction JSON invalid; continuing with deterministic "
+                "JD requirements only: %s",
+                exc,
+            )
+            modeled = ModelExtraction()
 
         merged = merge_requirements(
             deterministic=deterministic,

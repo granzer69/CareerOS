@@ -46,6 +46,16 @@ def _strip_markdown_fences(raw_text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def _coerce_json_object(raw_text: str) -> str:
+    """Take the outermost JSON object from chatty local-model output."""
+    stripped = _strip_markdown_fences(raw_text)
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start >= 0 and end > start:
+        return stripped[start : end + 1]
+    return stripped
+
+
 async def extract_requirements_with_model(
     *,
     resume_text: str,
@@ -75,7 +85,7 @@ async def extract_requirements_with_model(
         except Exception as exc:
             raise LocalInferenceError("Local inference failed") from exc
 
-        raw_text = _strip_markdown_fences(raw_text)
+        raw_text = _coerce_json_object(raw_text)
 
         try:
             parsed = json.loads(raw_text)
