@@ -32,6 +32,10 @@ test.describe("CareerOS copilot smoke", () => {
     await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
     await expect(page.getByText(/no analyses yet/i)).toBeVisible();
 
+    await page.getByRole("link", { name: "Analytics" }).click();
+    await expect(page.getByRole("heading", { name: /your evidence, over time/i })).toBeVisible();
+    await expect(page.getByText(/analytics stay empty/i)).toBeVisible();
+
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });

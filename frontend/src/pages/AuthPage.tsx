@@ -2,7 +2,9 @@ import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { getToken, request, setToken } from "../api";
 import { Banner } from "../components/Banner";
-import { HONESTY_COPY } from "../copy";
+import { StepList } from "../components/StepList";
+import { StudioFooter } from "../components/StudioFooter";
+import { HONESTY_COPY, STUDIO_COPY } from "../copy";
 import type { TokenResponse } from "../types";
 
 export function AuthPage() {
@@ -38,20 +40,30 @@ export function AuthPage() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell auth-shell">
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
       <header className="topbar">
         <div className="brand">
-          <strong>CareerOS</strong>
-          <span>Sign in to analyze a resume against a job description</span>
+          <strong>{STUDIO_COPY.brandMark}</strong>
+          <span>{STUDIO_COPY.brandLine}</span>
         </div>
       </header>
-      <main id="main-content">
+      <main id="main-content" className="auth-layout">
+        <section className="auth-hero" aria-labelledby="auth-hero-title">
+          <p className="eyebrow">{STUDIO_COPY.brandSub}</p>
+          <h1 id="auth-hero-title">{STUDIO_COPY.heroTitle}</h1>
+          <p className="lead">{STUDIO_COPY.heroLead}</p>
+          <p className="muted">{STUDIO_COPY.whoFor}</p>
+          <StepList />
+          <p className="footnote">{HONESTY_COPY.notPredictor}</p>
+        </section>
         <div className="card auth-card">
-          <h1>{mode === "login" ? "Sign in" : "Create an account"}</h1>
-          <p className="muted">{HONESTY_COPY.notPredictor}</p>
+          <h2>{mode === "login" ? "Sign in" : "Create an account"}</h2>
+          <p className="muted">
+            Same account for internships, co-ops, and full-time postings. History stays on this account.
+          </p>
           {error ? <Banner tone="error">{error}</Banner> : null}
           <form className="grid" onSubmit={onSubmit} aria-busy={pending}>
             <label htmlFor="email">
@@ -92,6 +104,7 @@ export function AuthPage() {
           </p>
         </div>
       </main>
+      <StudioFooter />
     </div>
   );
 }

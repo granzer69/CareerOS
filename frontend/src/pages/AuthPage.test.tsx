@@ -21,7 +21,9 @@ describe("AuthPage", () => {
     expect(text).not.toContain("placement probability");
     expect(text).not.toContain("chance of getting hired");
     expect(text).not.toContain("predicted company");
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(document.body.textContent).toMatch(/campus resume studio/i);
   });
 });

@@ -51,6 +51,11 @@ def test_frontend_uses_bearer_auth_and_real_analysis_fields() -> None:
     assert "application-readiness" in detail.lower() or "application_readiness_score" in detail
     assert "model_unavailable" in api
     assert "schema_outdated" in api
+    app_source = (SRC / "App.tsx").read_text(encoding="utf-8")
+    types_source = (SRC / "types.ts").read_text(encoding="utf-8")
+    assert "/analytics" in app_source
+    assert "AnalyticsRead" in types_source
+    assert "/api/v1/resume/analytics" in (SRC / "pages" / "AnalyticsPage.tsx").read_text(encoding="utf-8")
 
 
 def test_checked_in_dist_is_copilot_not_placement_app() -> None:

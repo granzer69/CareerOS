@@ -20,7 +20,7 @@ From one analysis (`ResumeAnalysisRead` / version read):
 - Edit mix by `kind` and `status`
 - Version scores vs original (same `rubric_version`)
 
-From the user’s history (list + details, or a future aggregate endpoint):
+From the user’s history (`GET /api/v1/resume/analytics`, last 100 owned analyses):
 
 - Analyses over time (readiness / fit / alignment)
 - Coverage heatmap: requirements × evidence state, grouped by `target_role`
@@ -56,8 +56,9 @@ Color is never the only encoding (see `frontend-a11y`).
 
 ## Implementation
 
-- Library: Recharts or Visx, lazy-loaded; do not add Chart.js + Recharts together
-- Data: typed objects from `frontend/src/types.ts`; fetch via `request()`
+- Default: native SVG + an HTML table (see `ScoreTrendChart`, `EvidenceMixChart`). Color is never the only encoding
+- Recharts or Visx only if SVG is no longer enough; do not add Chart.js + Recharts together
+- Data: `AnalyticsRead` in `frontend/src/types.ts`; fetch `/api/v1/resume/analytics` via `request()`. Do not N+1 analysis detail to build charts
 - New aggregates: backend service + Pydantic schema + owner-scoped route + Alembic if stored + pytest, then UI
 - Loading skeleton → empty copy → error banner using `actionableMessage`
 - Tooltips quote `rationale` / `evidence_state` / version number when those exist

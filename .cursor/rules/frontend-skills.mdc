@@ -18,6 +18,8 @@ When editing CareerOS frontend, read the matching skill under `.cursor/skills/` 
 - `frontend-a11y` — forms, tables, charts, dialogs, banners
 - `frontend-test` — Vitest / Testing Library / Playwright (not the pytest test-writer)
 - `careeros-honest-analytics` — dashboards, charts, KPIs, insights
+- `careeros-student-ux` — campus studio copy, onboarding, student-facing empty states
+- `careeros-production-frontend` — Vercel/Render deploy, daily users, CORS/JWT/GGUF
 - `careeros-figma` — Figma library, design, or design-to-code
 - `careeros-telemetry` — tracking SDKs, PostHog/Mixpanel/GA, outcome tracking
 

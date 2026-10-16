@@ -8,7 +8,7 @@ FastAPI + React platform for **resume analysis**, JWT auth, user profiles, and P
 
 CareerOS helps a user upload a resume, paste a job description, and receive three versioned scores: **job-fit**, **resume-alignment**, and **application-readiness**. A local GGUF model may extract extra JD requirements or propose span rewrites; it does not invent the final numbers. Profiles, analyses, edit suggestions, and accepted resume versions are stored in Postgres (SQLite usable locally). A static React frontend talks to the API; Render + Vercel deploy configs are included.
 
-`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The frontend source in `frontend/src` is a signed-in copilot: register/login, upload a resume, paste a JD, inspect evidence and scores, and review grounded edits. Build it with `npm run build` in `frontend/`. Do not hand-edit `frontend/dist`.
+`POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The frontend source in `frontend/src` is a signed-in campus resume studio: register/login, upload a resume, paste a JD, inspect evidence and scores, review grounded edits, and read owner-scoped analytics. Build it with `npm run build` in `frontend/`. Do not hand-edit `frontend/dist`.
 
 If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze and edit generation return HTTP 503 `model_unavailable` and do not call a hosted provider.
 
@@ -44,6 +44,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 - User profile CRUD (write paths)
 - Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match (including short skills such as Go, R, and C++) and rubric scoring → persisted `resume_analyses` owned by the authenticated user
 - User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
+- Owner-scoped analytics (`GET /api/v1/resume/analytics`) — evidence mix, mandatory gaps, and score trends for the caller’s last 100 analyses. Not a hiring probability or cross-user benchmark
 - Evidence-grounded edit proposals (`POST/GET /api/v1/resume/analyses/{id}/edits`) with accept/reject. Original resume text is immutable. Each batch is bound to the current version content hash. Accepted supported rewrites create a `resume_versions` row that is re-scored with rubric `v1.0.0`. Stale or concurrent accepts return 409. Owner-only version detail includes `resume_text` so the working copy can be reviewed; analysis GET and version list omit it. `POST .../restore-original` and `POST .../versions/{id}/restore` create a new version without rewriting history.
 - Health endpoint and CORS configuration for split frontend/backend deploy
 - Alembic migrations for users, profiles, resume analyses
