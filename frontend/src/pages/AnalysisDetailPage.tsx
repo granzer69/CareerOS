@@ -235,6 +235,34 @@ export function AnalysisDetailPage() {
             {analysis.target_role} · grade {analysis.grade} · estimated level {analysis.estimated_level}
           </p>
         </header>
+        {analysis.jd_insights ? (
+          <section className="jd-insights" aria-labelledby="jd-insights-title">
+            <h2 id="jd-insights-title">What this role is looking for</h2>
+            <p className="lead">{analysis.jd_insights.role_summary}</p>
+            <h3>Objectives</h3>
+            <ul>
+              {analysis.jd_insights.objectives.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            {analysis.jd_insights.success_criteria.length > 0 ? (
+              <>
+                <h3>Success signals from the posting</h3>
+                <ul>
+                  {analysis.jd_insights.success_criteria.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <p className="footnote">
+              Requirement evidence was reviewed{" "}
+              {analysis.jd_insights.evidence_method === "semantic_model"
+                ? "in context of these objectives (local model)."
+                : "with keyword matching because JD understanding or the model was unavailable."}
+            </p>
+          </section>
+        ) : null}
         <div className="scores">
           <ScoreCard
             label="Job-fit"

@@ -106,6 +106,14 @@ export interface ResumeAnalysisRead {
   eligibility: EligibilityItem[];
   blocked_by_requirement: boolean;
   completeness_included: boolean;
+  jd_insights: JdInsights | null;
+}
+
+export interface JdInsights {
+  role_summary: string;
+  objectives: string[];
+  success_criteria: string[];
+  evidence_method: "semantic_model" | "lexical_fallback";
 }
 
 export interface ResumeEditRead {

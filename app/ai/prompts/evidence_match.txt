@@ -1,0 +1,38 @@
+Judge whether the resume demonstrates each job requirement in context of the role objectives.
+Use semantic reasoning — synonyms, projects, and equivalent experience count. Do not require exact keyword overlap.
+
+Role summary:
+{role_summary}
+
+Role objectives:
+{objectives}
+
+Job description excerpt (for context):
+{job_description_excerpt}
+
+Resume text:
+{resume_text}
+
+Requirements to judge (index starts at 0):
+{requirements_json}
+
+Return ONLY JSON:
+{{
+  "matches": [
+    {{
+      "requirement_index": 0,
+      "evidence_state": "confirmed|partial|not_found|contradicted|unknown",
+      "evidence_span": "short verbatim quote from the resume or null",
+      "rationale": "one sentence tying resume evidence to the requirement"
+    }}
+  ]
+}}
+
+Rules:
+- confirmed: resume clearly supports the requirement (including reasonable synonyms).
+- partial: related experience but missing scope, years, or depth stated in the JD.
+- not_found: no credible evidence in the resume.
+- contradicted: resume explicitly conflicts (e.g., "no Python" vs required Python).
+- unknown: requirement is vague/boilerplate and cannot be verified from a resume.
+- evidence_span must be copied from the resume when state is confirmed or partial.
+- Judge every requirement index listed. No invented resume content.

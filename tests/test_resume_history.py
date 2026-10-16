@@ -22,6 +22,7 @@ from app.services.resume_service import (
     ResumeSchemaOutdatedError,
     ResumeService,
 )
+from tests.conftest import patch_all_build_local_adapter
 
 OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 OTHER_ID = UUID("00000000-0000-0000-0000-000000000002")
@@ -33,6 +34,12 @@ SAMPLE_JD = (
     "Preferred: Kubernetes\n"
 )
 VALID_EXTRACTION = {"requirements": [], "estimated_level": "mid"}
+VALID_UNDERSTANDING = {
+    "role_summary": "Backend engineer role focused on Python API delivery.",
+    "objectives": ["Build Python services"],
+    "success_criteria": [],
+    "estimated_level": "mid",
+}
 VALID_ANALYSIS = {
     "overall_score": 72,
     "grade": "B",
@@ -54,7 +61,13 @@ VALID_ANALYSIS = {
 
 
 class FakeAdapter:
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
+        if "requirement_index" in prompt:
+            return json.dumps({"matches": []})
+        if '"requirements"' in prompt and "evidence_state" not in prompt:
+            return json.dumps(VALID_EXTRACTION)
+        if "success_criteria" in prompt and "role_summary" in prompt:
+            return json.dumps(VALID_UNDERSTANDING)
         return json.dumps(VALID_EXTRACTION)
 
 
@@ -122,10 +135,7 @@ def test_analyze_with_real_jwt_persists_token_subject(
         "app.services.resume_service._extract_text_from_pdf",
         return_value="Python engineer with FastAPI experience at Acme.",
     )
-    mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
-        return_value=FakeAdapter(),
-    )
+    patch_all_build_local_adapter(mocker, FakeAdapter())
 
     async def _override_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session_mock
@@ -195,10 +205,7 @@ def test_analyze_persists_token_subject_not_client_user_id(
         "app.services.resume_service._extract_text_from_pdf",
         return_value="Python engineer with FastAPI experience at Acme.",
     )
-    mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
-        return_value=FakeAdapter(),
-    )
+    patch_all_build_local_adapter(mocker, FakeAdapter())
 
     async def _refresh(record: object) -> None:
         record.id = ANALYSIS_ID  # type: ignore[attr-defined]
@@ -246,6 +253,7 @@ def test_analyze_persists_token_subject_not_client_user_id(
         "eligibility",
         "blocked_by_requirement",
         "completeness_included",
+        "jd_insights",
     }
 
 

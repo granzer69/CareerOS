@@ -77,7 +77,10 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
    - download a GGUF **outside** the request path
    - `pip install -r requirements-local-inference.txt`
    - set `LOCAL_MODEL_PATH` to that file
+   - optional: `LOCAL_MODEL_PATH_JD` and `LOCAL_MODEL_PATH_EVIDENCE` for separate GGUF files (JD understanding + extraction vs semantic evidence matching). When unset, every stage uses `LOCAL_MODEL_PATH`.
 5. `uvicorn app.main:app --reload`
+
+Analysis runs three local stages when weights are present: (1) infer JD objectives, (2) extract requirements in that context, (3) judge resume evidence semantically (not keyword overlap). Lexical matching is used only when understanding or inference is unavailable.
 6. In `frontend`: `npm install && npm run build` (relative `/api` for local unified mode). For Vercel, set `BACKEND_URL` to the HTTPS API before `npm run build`.
 
 If `LOCAL_MODEL_PATH` is empty, the API still boots. Analyze returns `{"detail": {"detail": "Local model weights are not available", "code": "model_unavailable"}}`.

@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.evidence import EligibilityItem, RequirementMatch
+from app.schemas.jd_insights import JDInsightsRead
 
 
 class ResumeSectionSchema(BaseModel):
@@ -84,6 +85,7 @@ class ResumeAnalysisRead(BaseModel):
     eligibility: list[EligibilityItem] = Field(default_factory=list)
     blocked_by_requirement: bool = False
     completeness_included: bool = False
+    jd_insights: JDInsightsRead | None = None
 
     model_config = {
         "from_attributes": True,

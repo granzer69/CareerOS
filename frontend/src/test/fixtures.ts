@@ -57,6 +57,7 @@ export const analysisFixture: ResumeAnalysisRead = {
   eligibility: [],
   blocked_by_requirement: false,
   completeness_included: true,
+  jd_insights: null,
 };
 
 export const historyFixture: ResumeAnalysisSummary[] = [

@@ -30,6 +30,7 @@ from app.schemas.resume_analysis import ResumeAnalysisRead
 from app.services.evidence_matcher import match_requirements
 from app.services.jd_extraction import extract_requirements
 from app.services.scoring import RUBRIC_VERSION, score_application
+from tests.conftest import patch_all_build_local_adapter
 
 SAMPLE_JD = (
     "Required: Python\n"
@@ -38,6 +39,12 @@ SAMPLE_JD = (
 )
 SAMPLE_RESUME = "Python engineer with FastAPI experience at Acme."
 VALID_EXTRACTION: dict[str, Any] = {"requirements": [], "estimated_level": "mid"}
+VALID_UNDERSTANDING: dict[str, Any] = {
+    "role_summary": "Backend engineer role focused on Python API delivery.",
+    "objectives": ["Build and maintain Python services"],
+    "success_criteria": [],
+    "estimated_level": "mid",
+}
 INVENTED_SCORES: dict[str, Any] = {
     "overall_score": 72,
     "grade": "B",
@@ -72,6 +79,7 @@ RESUME_READ_FIELDS = {
     "eligibility",
     "blocked_by_requirement",
     "completeness_included",
+    "jd_insights",
 }
 
 
@@ -79,7 +87,13 @@ class FakeAdapter:
     def __init__(self, payload: str) -> None:
         self._payload = payload
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
+        if "requirement_index" in prompt:
+            return json.dumps({"matches": []})
+        if '"requirements"' in prompt and "evidence_state" not in prompt:
+            return self._payload
+        if "success_criteria" in prompt and "role_summary" in prompt:
+            return json.dumps(VALID_UNDERSTANDING)
         return self._payload
 
 
@@ -87,7 +101,7 @@ class RaisingAdapter:
     def __init__(self, exc: BaseException) -> None:
         self._exc = exc
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
         raise self._exc
 
 
@@ -131,9 +145,9 @@ async def test_mocked_adapter_returns_resume_analysis_read_shape(
 ) -> None:
     """A mocked local completion persists rubric scores and the ResumeAnalysisRead contract."""
     _patch_extraction(mocker)
-    mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
-        return_value=FakeAdapter(json.dumps(VALID_EXTRACTION)),
+    patch_all_build_local_adapter(
+        mocker,
+        FakeAdapter(json.dumps(VALID_EXTRACTION)),
     )
     db_session_mock.refresh.side_effect = _assign_persisted_fields
     expected = _expected_scores()
@@ -194,9 +208,9 @@ def test_adapter_exception_is_mapped_without_leaking_details(
 ) -> None:
     """Unexpected adapter errors map to 503 inference_failed without leaking internals."""
     _patch_extraction(mocker)
-    mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
-        return_value=RaisingAdapter(RuntimeError("prompt-secret")),
+    patch_all_build_local_adapter(
+        mocker,
+        RaisingAdapter(RuntimeError("prompt-secret")),
     )
 
     with TestClient(app) as client:
@@ -221,10 +235,7 @@ async def test_invalid_json_falls_back_to_deterministic_jd(
 ) -> None:
     """Malformed model JSON still scores deterministic JD requirements."""
     _patch_extraction(mocker)
-    mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
-        return_value=FakeAdapter("not-json"),
-    )
+    patch_all_build_local_adapter(mocker, FakeAdapter("not-json"))
     db_session_mock.refresh.side_effect = _assign_persisted_fields
 
     service = ResumeService(db_session=db_session_mock)
@@ -248,10 +259,7 @@ async def test_model_numeric_scores_are_rejected_but_deterministic_jd_still_scor
 ) -> None:
     """Invented score JSON from the model is ignored; rubric uses deterministic JD rows."""
     _patch_extraction(mocker)
-    mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
-        return_value=FakeAdapter(json.dumps(INVENTED_SCORES)),
-    )
+    patch_all_build_local_adapter(mocker, FakeAdapter(json.dumps(INVENTED_SCORES)))
     db_session_mock.refresh.side_effect = _assign_persisted_fields
 
     service = ResumeService(db_session=db_session_mock)

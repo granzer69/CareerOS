@@ -60,3 +60,13 @@ def client(fastapi_app: FastAPI) -> Generator[TestClient, None, None]:
     with TestClient(fastapi_app) as c:
         yield c
 
+
+def patch_all_build_local_adapter(mocker: MockerFixture, adapter: object) -> None:
+    """Patch every module that imports build_local_adapter by name (Python import semantics)."""
+    for target in (
+        "app.ai.local_inference.build_local_adapter",
+        "app.ai.resume_analyzer.build_local_adapter",
+        "app.ai.jd_pipeline.build_local_adapter",
+    ):
+        mocker.patch(target, return_value=adapter)
+
