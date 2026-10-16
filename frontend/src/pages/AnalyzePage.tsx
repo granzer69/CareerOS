@@ -16,6 +16,7 @@ export function AnalyzePage() {
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [pendingLabel, setPendingLabel] = useState("Analyzing…");
 
   useEffect(() => {
     void request<UserProfileRead>("/api/v1/user-profile/me")
@@ -35,6 +36,7 @@ export function AnalyzePage() {
       return;
     }
     setPending(true);
+    setPendingLabel("Uploading…");
     setError(null);
     const body = new FormData();
     body.append("file", file);
@@ -45,6 +47,9 @@ export function AnalyzePage() {
         method: "POST",
         body,
       });
+      setPendingLabel(
+        "Running local model on the server — this can take a few minutes. Keep this tab open.",
+      );
       const analysis = await pollAnalysisJob(job.id);
       navigate(`/analyses/${analysis.id}`);
     } catch (err) {
@@ -117,7 +122,7 @@ export function AnalyzePage() {
             />
           </label>
           <button type="submit" disabled={pending || !getToken()} aria-busy={pending}>
-            {pending ? "Analyzing…" : "Run analysis"}
+            {pending ? pendingLabel : "Run analysis"}
           </button>
         </form>
       </div>

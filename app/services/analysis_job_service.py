@@ -105,6 +105,42 @@ class AnalysisJobNotFoundError(Exception):
     """Raised when a job id is unknown or owned by another user."""
 
 
+def _run_job_blocking(
+    *,
+    job_id: UUID,
+    user_id: UUID,
+    file_bytes: bytes,
+    file_name: str,
+    content_type: str,
+    target_role: str,
+    job_description: str,
+) -> tuple[str, ResumeAnalysisRead | None, str | None, str | None]:
+    """
+    Blocking worker entrypoint. Returns (terminal_status, analysis, error_code, error_detail).
+    """
+    async def _execute() -> ResumeAnalysisRead:
+        async with async_session_factory() as session:
+            service = ResumeService(db_session=session)
+            return await service.analyze_resume(
+                file_bytes=file_bytes,
+                file_name=file_name,
+                content_type=content_type,
+                target_role=target_role,
+                job_description=job_description,
+                user_id=user_id,
+            )
+
+    try:
+        analysis = asyncio.run(_execute())
+        return ("completed", analysis, None, None)
+    except DomainError as exc:
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return ("failed", None, exc.code, detail)
+    except Exception:
+        logger.exception("Background analysis job %s failed", job_id)
+        return ("failed", None, "analysis_failed", "Resume analysis failed")
+
+
 async def _run_job(
     *,
     job_id: UUID,
@@ -122,40 +158,23 @@ async def _run_job(
         record.status = "running"
         record.updated_at = _utc_now()
 
-    try:
-        async with async_session_factory() as session:
-            service = ResumeService(db_session=session)
-            analysis = await service.analyze_resume(
-                file_bytes=file_bytes,
-                file_name=file_name,
-                content_type=content_type,
-                target_role=target_role,
-                job_description=job_description,
-                user_id=user_id,
-            )
-        async with _jobs_lock:
-            record = _jobs.get(job_id)
-            if record is None:
-                return
-            record.status = "completed"
-            record.analysis = analysis
-            record.updated_at = _utc_now()
-    except DomainError as exc:
-        async with _jobs_lock:
-            record = _jobs.get(job_id)
-            if record is None:
-                return
-            record.status = "failed"
-            record.error_code = exc.code
-            record.error_detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
-            record.updated_at = _utc_now()
-    except Exception:
-        logger.exception("Background analysis job %s failed", job_id)
-        async with _jobs_lock:
-            record = _jobs.get(job_id)
-            if record is None:
-                return
-            record.status = "failed"
-            record.error_code = "analysis_failed"
-            record.error_detail = "Resume analysis failed"
-            record.updated_at = _utc_now()
+    status, analysis, error_code, error_detail = await asyncio.to_thread(
+        _run_job_blocking,
+        job_id=job_id,
+        user_id=user_id,
+        file_bytes=file_bytes,
+        file_name=file_name,
+        content_type=content_type,
+        target_role=target_role,
+        job_description=job_description,
+    )
+
+    async with _jobs_lock:
+        record = _jobs.get(job_id)
+        if record is None:
+            return
+        record.status = status
+        record.analysis = analysis
+        record.error_code = error_code
+        record.error_detail = error_detail
+        record.updated_at = _utc_now()

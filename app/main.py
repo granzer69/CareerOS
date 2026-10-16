@@ -109,7 +109,13 @@ if not settings.is_production:
 
             index_file = FRONTEND_DIR / "index.html"
             if index_file.exists():
-                return FileResponse(index_file)
+                return FileResponse(
+                    index_file,
+                    headers={
+                        "Cache-Control": "no-cache, no-store, must-revalidate",
+                        "Pragma": "no-cache",
+                    },
+                )
 
             return JSONResponse(
                 status_code=404,
