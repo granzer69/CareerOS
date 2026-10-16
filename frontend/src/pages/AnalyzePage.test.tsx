@@ -6,20 +6,32 @@ import { AnalyzePage } from "./AnalyzePage";
 
 vi.mock("../api", () => ({
   request: vi.fn(),
+  pollAnalysisJob: vi.fn(),
   getToken: () => "test-token",
 }));
 
-import { request } from "../api";
+import { pollAnalysisJob, request } from "../api";
 
 const mockedRequest = vi.mocked(request);
+const mockedPoll = vi.mocked(pollAnalysisJob);
 
 describe("AnalyzePage", () => {
   beforeEach(() => {
     mockedRequest.mockReset();
+    mockedPoll.mockReset();
   });
 
   it("surfaces model_unavailable as an actionable GGUF error", async () => {
-    mockedRequest.mockRejectedValue(
+    mockedRequest.mockResolvedValue({
+      id: "job-1",
+      status: "pending",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      analysis: null,
+      error_code: null,
+      error_detail: null,
+    });
+    mockedPoll.mockRejectedValue(
       Object.assign(
         new Error(
           "Local GGUF weights are not configured on the API host. Health can still be OK. Set LOCAL_MODEL_PATH to an on-disk file; CareerOS will not download a model or call a hosted LLM.",

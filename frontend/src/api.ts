@@ -1,6 +1,7 @@
-import type { ApiError } from "./types";
+import type { AnalysisJobRead, ApiError, ResumeAnalysisRead } from "./types";
 
 const TOKEN_KEY = "careeros_token";
+const USER_ID_KEY = "careeros_user_id";
 
 export function apiBase(): string {
   const configured = import.meta.env.VITE_BACKEND_URL || "";
@@ -19,8 +20,22 @@ export function setToken(token: string): void {
   window.localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function getUserId(): string | null {
+  return window.localStorage.getItem(USER_ID_KEY);
+}
+
+export function setUserId(userId: string): void {
+  window.localStorage.setItem(USER_ID_KEY, userId);
+}
+
+export function setSession(token: string, userId: string): void {
+  setToken(token);
+  setUserId(userId);
+}
+
 export function clearToken(): void {
   window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(USER_ID_KEY);
 }
 
 export function parseApiError(payload: unknown, fallback: string): ApiError {
@@ -49,6 +64,8 @@ export function actionableMessage(error: ApiError): string {
       return "Your session expired. Sign in again.";
     case "model_unavailable":
       return "Local GGUF weights are not configured on the API host. Health can still be OK. Set LOCAL_MODEL_PATH to an on-disk file; CareerOS will not download a model or call a hosted LLM.";
+    case "inference_failed":
+      return "Local inference failed on the API host. Check server logs, LOCAL_MODEL_PATH, and that llama-cpp-python matches your OS (glibc vs musl).";
     case "file_too_large":
       return "Resume files must be 5 MB or smaller.";
     case "unsupported_media_type":
@@ -69,6 +86,8 @@ export function actionableMessage(error: ApiError): string {
       return "Invalid email or password.";
     case "schema_outdated":
       return "The local database schema is behind Alembic. Stop the API, delete leftover sqlite, run `alembic upgrade head`, then restart.";
+    case "not_found":
+      return "That resource was not found for your account.";
     default:
       return error.message;
   }
@@ -95,7 +114,7 @@ export async function request<T>(
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(apiUrl(path), { ...init, headers });
+  const response = await fetch(apiUrl(path), { ...init, headers, cache: "no-store" });
   if (response.status === 401) {
     clearToken();
   }
@@ -107,4 +126,29 @@ export async function request<T>(
     return undefined as T;
   }
   return (await response.json()) as T;
+}
+
+const ANALYSIS_POLL_MS = 2000;
+const ANALYSIS_POLL_MAX_MS = 10 * 60 * 1000;
+
+/** Poll a background analysis job until it completes or fails. */
+export async function pollAnalysisJob(jobId: string): Promise<ResumeAnalysisRead> {
+  const deadline = Date.now() + ANALYSIS_POLL_MAX_MS;
+  while (Date.now() < deadline) {
+    const job = await request<AnalysisJobRead>(`/api/v1/resume/analyze-jobs/${jobId}`);
+    if (job.status === "completed" && job.analysis) {
+      return job.analysis;
+    }
+    if (job.status === "failed") {
+      const error: ApiError = {
+        message: job.error_detail ?? "Resume analysis failed",
+        code: job.error_code ?? undefined,
+      };
+      throw Object.assign(new Error(actionableMessage(error)), { code: error.code });
+    }
+    await new Promise((resolve) => setTimeout(resolve, ANALYSIS_POLL_MS));
+  }
+  throw new Error(
+    "Analysis is still running on the server. Wait a moment and check History, or try again.",
+  );
 }

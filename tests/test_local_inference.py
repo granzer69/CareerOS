@@ -215,59 +215,58 @@ def test_adapter_exception_is_mapped_without_leaking_details(
 
 
 @pytest.mark.asyncio
-async def test_invalid_json_does_not_persist(
+async def test_invalid_json_falls_back_to_deterministic_jd(
     db_session_mock: AsyncSession,
     mocker: MockerFixture,
 ) -> None:
-    """Malformed model JSON returns analysis_failed and does not commit a row."""
+    """Malformed model JSON still scores deterministic JD requirements."""
     _patch_extraction(mocker)
     mocker.patch(
         "app.ai.resume_analyzer.build_local_adapter",
         return_value=FakeAdapter("not-json"),
     )
+    db_session_mock.refresh.side_effect = _assign_persisted_fields
 
     service = ResumeService(db_session=db_session_mock)
-    with pytest.raises(ResumeAnalysisFailedError) as exc:
-        await service.analyze_resume(
-            file_bytes=b"%PDF-fake",
-            file_name="cv.pdf",
-            content_type="application/pdf",
-            target_role="Backend Engineer",
-            job_description=SAMPLE_JD,
-            user_id=UUID("00000000-0000-0000-0000-000000000001"),
-        )
+    await service.analyze_resume(
+        file_bytes=b"%PDF-fake",
+        file_name="cv.pdf",
+        content_type="application/pdf",
+        target_role="Backend Engineer",
+        job_description=SAMPLE_JD,
+        user_id=UUID("00000000-0000-0000-0000-000000000001"),
+    )
 
-    assert exc.value.code == "analysis_failed"
-    db_session_mock.add.assert_not_called()
-    db_session_mock.commit.assert_not_awaited()
+    db_session_mock.add.assert_called_once()
+    db_session_mock.commit.assert_awaited()
 
 
 @pytest.mark.asyncio
-async def test_model_numeric_scores_are_rejected_and_not_persisted(
+async def test_model_numeric_scores_are_rejected_but_deterministic_jd_still_scores(
     db_session_mock: AsyncSession,
     mocker: MockerFixture,
 ) -> None:
-    """JSON that includes invented scores fails extraction validation and is not stored."""
+    """Invented score JSON from the model is ignored; rubric uses deterministic JD rows."""
     _patch_extraction(mocker)
     mocker.patch(
         "app.ai.resume_analyzer.build_local_adapter",
         return_value=FakeAdapter(json.dumps(INVENTED_SCORES)),
     )
+    db_session_mock.refresh.side_effect = _assign_persisted_fields
 
     service = ResumeService(db_session=db_session_mock)
-    with pytest.raises(ResumeAnalysisFailedError) as exc:
-        await service.analyze_resume(
-            file_bytes=b"%PDF-fake",
-            file_name="cv.pdf",
-            content_type="application/pdf",
-            target_role="Backend Engineer",
-            job_description=SAMPLE_JD,
-            user_id=UUID("00000000-0000-0000-0000-000000000001"),
-        )
+    result = await service.analyze_resume(
+        file_bytes=b"%PDF-fake",
+        file_name="cv.pdf",
+        content_type="application/pdf",
+        target_role="Backend Engineer",
+        job_description=SAMPLE_JD,
+        user_id=UUID("00000000-0000-0000-0000-000000000001"),
+    )
 
-    assert exc.value.code == "analysis_failed"
-    db_session_mock.add.assert_not_called()
-    db_session_mock.commit.assert_not_awaited()
+    assert result.overall_score != INVENTED_SCORES["overall_score"]
+    db_session_mock.add.assert_called_once()
+    db_session_mock.commit.assert_awaited()
 
 
 @pytest.mark.asyncio

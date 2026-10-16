@@ -13,10 +13,34 @@ export type EditKind =
   | "needs_evidence";
 export type EditStatus = "pending" | "accepted" | "rejected";
 
+export type ExperienceLevel = "student" | "junior" | "mid";
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
   user_id: string;
+}
+
+export interface UserProfileRead {
+  id: string;
+  user_id: string;
+  skills: string[];
+  target_role: string;
+  experience_level: ExperienceLevel;
+  created_at: string;
+}
+
+export interface UserProfileCreate {
+  user_id: string;
+  skills: string[];
+  target_role: string;
+  experience_level: ExperienceLevel;
+}
+
+export interface UserProfileUpdate {
+  skills?: string[];
+  target_role?: string;
+  experience_level?: ExperienceLevel;
 }
 
 export interface HealthStatus {
@@ -143,6 +167,7 @@ export interface ScorePoint {
   job_fit_score: number | null;
   resume_alignment_score: number | null;
   application_readiness_score: number | null;
+  ats_score?: number | null;
   rubric_version: string | null;
   blocked_by_requirement: boolean;
 }
@@ -161,6 +186,90 @@ export interface TermCount {
   count: number;
 }
 
+export interface EditKindCount {
+  kind: string;
+  count: number;
+}
+
+export interface EditStats {
+  total_edits: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+  supported_rewrite_generated: number;
+  supported_rewrite_accepted: number;
+  supported_rewrite_rejected: number;
+  supported_rewrite_accept_rate: number | null;
+}
+
+export interface ImportanceEvidenceBucket {
+  importance: string;
+  state: EvidenceState;
+  count: number;
+}
+
+export interface RoleCoverageRow {
+  target_role: string;
+  requirement_text: string;
+  confirmed: number;
+  partial: number;
+  not_found: number;
+  contradicted: number;
+  unknown: number;
+}
+
+export interface VersionDelta {
+  analysis_id: string;
+  file_name: string;
+  target_role: string;
+  original_readiness: number | null;
+  latest_version_readiness: number | null;
+  delta: number | null;
+  latest_version_number: number | null;
+  rubric_version: string | null;
+  original_job_fit: number | null;
+  latest_job_fit: number | null;
+  original_alignment: number | null;
+  latest_alignment: number | null;
+  original_terminology: number | null;
+  latest_terminology: number | null;
+}
+
+export interface RequirementHeatCell {
+  requirement_text: string;
+  target_role: string;
+  evidence_state: EvidenceState;
+  count: number;
+}
+
+export interface EligibilityRollup {
+  text: string;
+  confirmed_met: number;
+  confirmed_not_met: number;
+  unknown: number;
+  not_applicable: number;
+}
+
+export interface ProfileSkillCoverage {
+  skill: string;
+  requirement_mentions: number;
+  confirmed: number;
+  partial: number;
+  not_found: number;
+  contradicted: number;
+  unknown: number;
+}
+
+export interface AnalysisJobRead {
+  id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  created_at: string;
+  updated_at: string;
+  analysis: ResumeAnalysisRead | null;
+  error_code: string | null;
+  error_detail: string | null;
+}
+
 export interface AnalyticsRead {
   analysis_count: number;
   requirement_count: number;
@@ -172,6 +281,14 @@ export interface AnalyticsRead {
   scores: ScorePoint[];
   roles: RoleBreakdown[];
   missing_terminology: TermCount[];
+  edits: EditStats;
+  edit_kinds: EditKindCount[];
+  version_deltas: VersionDelta[];
+  requirement_heatmap: RequirementHeatCell[];
+  importance_evidence: ImportanceEvidenceBucket[];
+  role_coverage_matrix: RoleCoverageRow[];
+  eligibility_rollups: EligibilityRollup[];
+  profile_skill_coverage: ProfileSkillCoverage[];
 }
 
 export interface ApiError {

@@ -41,10 +41,10 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 ## Implemented features
 
 - User registration / login with JWT
-- User profile CRUD (write paths)
+- User profile create/update and `GET /api/v1/user-profile/me` (owner-scoped)
 - Resume upload + job description → text extraction → local-model requirement extraction → deterministic evidence match (including short skills such as Go, R, and C++) and rubric scoring → persisted `resume_analyses` owned by the authenticated user
 - User-scoped analysis history (`GET /api/v1/resume/analyses` and `GET /api/v1/resume/analyses/{id}`)
-- Owner-scoped analytics (`GET /api/v1/resume/analytics`) — evidence mix, mandatory gaps, and score trends for the caller’s last 100 analyses. Not a hiring probability or cross-user benchmark
+- Owner-scoped analytics (`GET /api/v1/resume/analytics`) — evidence mix, mandatory gaps, score trends, edit funnel, version lift, requirement coverage, eligibility rollups, and profile-skill vs JD mention counts for the caller’s last 100 analyses. Optional `target_role` filter. Not a hiring probability or cross-user benchmark
 - Evidence-grounded edit proposals (`POST/GET /api/v1/resume/analyses/{id}/edits`) with accept/reject. Original resume text is immutable. Each batch is bound to the current version content hash. Accepted supported rewrites create a `resume_versions` row that is re-scored with rubric `v1.0.0`. Stale or concurrent accepts return 409. Owner-only version detail includes `resume_text` so the working copy can be reviewed; analysis GET and version list omit it. `POST .../restore-original` and `POST .../versions/{id}/restore` create a new version without rewriting history.
 - Health endpoint and CORS configuration for split frontend/backend deploy
 - Alembic migrations for users, profiles, resume analyses

@@ -1,19 +1,33 @@
-import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getToken, request } from "../api";
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { getToken, pollAnalysisJob, request } from "../api";
+import type { AnalysisJobRead } from "../types";
 import { isSessionExpiredError } from "../authRedirect";
 import { Banner } from "../components/Banner";
 import { StepList } from "../components/StepList";
 import { HONESTY_COPY, STUDIO_COPY } from "../copy";
-import type { ResumeAnalysisRead } from "../types";
+import type { ResumeAnalysisRead, UserProfileRead } from "../types";
 
 export function AnalyzePage() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [targetRole, setTargetRole] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [profileRole, setProfileRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [pendingLabel, setPendingLabel] = useState("Analyzing…");
+
+  useEffect(() => {
+    void request<UserProfileRead>("/api/v1/user-profile/me")
+      .then((profile) => {
+        setProfileRole(profile.target_role);
+        setTargetRole((current) => current || profile.target_role);
+      })
+      .catch(() => {
+        setProfileRole(null);
+      });
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -22,16 +36,21 @@ export function AnalyzePage() {
       return;
     }
     setPending(true);
+    setPendingLabel("Uploading…");
     setError(null);
     const body = new FormData();
     body.append("file", file);
     body.append("target_role", targetRole);
     body.append("job_description", jobDescription);
     try {
-      const analysis = await request<ResumeAnalysisRead>("/api/v1/resume/analyze", {
+      const job = await request<AnalysisJobRead>("/api/v1/resume/analyze-jobs", {
         method: "POST",
         body,
       });
+      setPendingLabel(
+        "Running local model on the server — this can take a few minutes. Keep this tab open.",
+      );
+      const analysis = await pollAnalysisJob(job.id);
       navigate(`/analyses/${analysis.id}`);
     } catch (err) {
       if (isSessionExpiredError(err)) {
@@ -71,17 +90,26 @@ export function AnalyzePage() {
             />
             {file ? <span className="footnote">Selected: {file.name}</span> : null}
           </label>
-          <label htmlFor="target-role">
-            Target role
-            <input
-              id="target-role"
-              value={targetRole}
-              onChange={(event) => setTargetRole(event.target.value)}
-              maxLength={200}
-              required
-              placeholder="e.g. Software engineering intern"
-            />
-          </label>
+        <label htmlFor="target-role">
+          Target role
+          <input
+            id="target-role"
+            value={targetRole}
+            onChange={(event) => setTargetRole(event.target.value)}
+            maxLength={200}
+            required
+            placeholder="e.g. Software engineering intern"
+          />
+          {profileRole ? (
+            <span className="footnote">
+              Prefilled from your <Link to="/profile">profile</Link> when empty. You can override per posting.
+            </span>
+          ) : (
+            <span className="footnote">
+              <Link to="/profile">Save a profile</Link> to prefill this field next time.
+            </span>
+          )}
+        </label>
           <label htmlFor="job-description">
             Job description
             <textarea
@@ -94,7 +122,7 @@ export function AnalyzePage() {
             />
           </label>
           <button type="submit" disabled={pending || !getToken()} aria-busy={pending}>
-            {pending ? "Analyzing…" : "Run analysis"}
+            {pending ? pendingLabel : "Run analysis"}
           </button>
         </form>
       </div>

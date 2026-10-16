@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { getToken, request, setToken } from "../api";
+import { getToken, request, setSession } from "../api";
 import { Banner } from "../components/Banner";
 import { StepList } from "../components/StepList";
 import { StudioFooter } from "../components/StudioFooter";
@@ -29,7 +29,7 @@ export function AuthPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      setToken(token.access_token);
+      setSession(token.access_token, token.user_id);
       navigate("/");
     } catch (err) {
       const fallback = err instanceof Error ? err.message : "Sign-in failed";

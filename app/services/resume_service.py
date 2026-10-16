@@ -15,13 +15,24 @@ from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
 from app.ai.resume_analyzer import extract_requirements_with_model
 from app.core.errors import DomainError
 from app.models.resume_analysis import ResumeAnalysis
+from app.models.resume_edit import ResumeEdit, ResumeVersion
+from app.models.user_profile import UserProfile
 from app.schemas.analytics import (
     AnalyticsRead,
+    EditKindCount,
+    EditStats,
+    EligibilityRollup,
     EvidenceBucket,
+    ImportanceEvidenceBucket,
+    ProfileSkillCoverage,
+    RequirementHeatCell,
     RoleBreakdown,
+    RoleCoverageRow,
     ScorePoint,
     TermCount,
+    VersionDelta,
 )
+from app.schemas.evidence import ModelExtraction
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 from app.services.evidence_matcher import match_requirements
 from app.services.jd_extraction import derive_target_role, extract_requirements, merge_requirements
@@ -38,6 +49,9 @@ EVIDENCE_STATES: tuple[str, ...] = (
 )
 MANDATORY_GAP_STATES: frozenset[str] = frozenset({"not_found", "contradicted"})
 MISSING_TERM_LIMIT: int = 15
+HEATMAP_CELL_LIMIT: int = 48
+ROLE_MATRIX_ROWS_PER_ROLE: int = 10
+IMPORTANCE_LEVELS: tuple[str, ...] = ("mandatory", "preferred", "contextual")
 
 MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
 MAX_JOB_DESCRIPTION_CHARS: int = 20_000
@@ -223,11 +237,12 @@ class ResumeService:
                 http_status=503,
             ) from exc
         except ValueError as exc:
-            raise ResumeAnalysisFailedError(
-                detail="Model output was not valid analysis JSON",
-                code="analysis_failed",
-                http_status=422,
-            ) from exc
+            logger.warning(
+                "Local model extraction JSON invalid; continuing with deterministic "
+                "JD requirements only: %s",
+                exc,
+            )
+            modeled = ModelExtraction()
 
         merged = merge_requirements(
             deterministic=deterministic,
@@ -327,12 +342,18 @@ class ResumeService:
         )
         return ResumeAnalysisRead.model_validate(record)
 
-    async def get_analytics_for_user(self, *, user_id: UUID) -> AnalyticsRead:
+    async def get_analytics_for_user(
+        self,
+        *,
+        user_id: UUID,
+        target_role: str | None = None,
+    ) -> AnalyticsRead:
         """
         Aggregate the caller's analyses into owner-scoped analytics.
 
         Uses the same owner filter and 100-row cap as history. Omits resume
-        text and does not mix in other users' rows.
+        text and does not mix in other users' rows. Optional target_role
+        filters the in-memory window before aggregates are computed.
         """
         stmt = (
             select(ResumeAnalysis)
@@ -346,7 +367,45 @@ class ResumeService:
             _raise_if_schema_outdated(exc)
             raise
         rows = list(result.scalars().all())
-        return build_analytics(rows)
+        if target_role is not None:
+            trimmed = target_role.strip()
+            if trimmed:
+                rows = [row for row in rows if getattr(row, "target_role", "") == trimmed]
+
+        analysis_ids = [row.id for row in rows]
+        edit_rows: list[ResumeEdit] = []
+        version_rows: list[ResumeVersion] = []
+        if analysis_ids:
+            edit_stmt = select(ResumeEdit).where(
+                ResumeEdit.user_id == user_id,
+                ResumeEdit.analysis_id.in_(analysis_ids),
+            )
+            version_stmt = select(ResumeVersion).where(
+                ResumeVersion.user_id == user_id,
+                ResumeVersion.analysis_id.in_(analysis_ids),
+            )
+            edit_result = await self._db_session.execute(edit_stmt)
+            version_result = await self._db_session.execute(version_stmt)
+            edit_rows = list(edit_result.scalars().all())
+            version_rows = list(version_result.scalars().all())
+
+        profile_skills: list[str] = []
+        profile_stmt = select(UserProfile).where(UserProfile.user_id == user_id)
+        try:
+            profile_result = await self._db_session.execute(profile_stmt)
+            profile = profile_result.scalar_one_or_none()
+            if profile is not None and isinstance(profile.skills, list):
+                profile_skills = [str(skill) for skill in profile.skills if str(skill).strip()]
+        except (OperationalError, ProgrammingError) as exc:
+            _raise_if_schema_outdated(exc)
+            raise
+
+        return build_analytics(
+            rows,
+            edits=edit_rows,
+            versions=version_rows,
+            profile_skills=profile_skills,
+        )
 
 
 def _as_match_dicts(value: object) -> list[dict[str, object]]:
@@ -369,6 +428,108 @@ def _as_terms(value: object) -> list[str]:
     return terms
 
 
+def _as_eligibility_dicts(value: object) -> list[dict[str, object]]:
+    """Return eligibility rows as dicts, ignoring malformed entries."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+ELIGIBILITY_STATUSES: tuple[str, ...] = (
+    "confirmed_met",
+    "confirmed_not_met",
+    "unknown",
+    "not_applicable",
+)
+
+
+def _normalize_skill_token(skill: str) -> str:
+    return " ".join(skill.strip().lower().split())
+
+
+def _skill_mentions_requirement(skill: str, requirement_text: str) -> bool:
+    """Substring match between a profile skill and a JD requirement line."""
+    normalized_skill = _normalize_skill_token(skill)
+    normalized_requirement = _normalize_skill_token(requirement_text)
+    if len(normalized_skill) < 2 or len(normalized_requirement) < 2:
+        return False
+    return (
+        normalized_skill in normalized_requirement
+        or normalized_requirement in normalized_skill
+    )
+
+
+def _build_eligibility_rollups(rows: list[object]) -> list[EligibilityRollup]:
+    """Aggregate eligibility items by constraint text across analyses."""
+    rollups: dict[str, dict[str, int]] = defaultdict(
+        lambda: {status: 0 for status in ELIGIBILITY_STATUSES}
+    )
+    for row in rows:
+        for item in _as_eligibility_dicts(getattr(row, "eligibility", None)):
+            text = str(item.get("text", "")).strip()
+            if not text:
+                continue
+            status = str(item.get("status", "unknown"))
+            if status not in ELIGIBILITY_STATUSES:
+                status = "unknown"
+            rollups[text][status] += 1
+    return [
+        EligibilityRollup(
+            text=text,
+            confirmed_met=counts["confirmed_met"],
+            confirmed_not_met=counts["confirmed_not_met"],
+            unknown=counts["unknown"],
+            not_applicable=counts["not_applicable"],
+        )
+        for text, counts in sorted(rollups.items(), key=lambda item: item[0].lower())
+    ]
+
+
+def _build_profile_skill_coverage(
+    rows: list[object],
+    profile_skills: list[str],
+) -> list[ProfileSkillCoverage]:
+    """
+    Count JD requirement rows whose text mentions each profile skill string.
+
+    Does not infer skills that never appear on a posting in this window.
+    """
+    seen_skills: list[str] = []
+    for skill in profile_skills:
+        cleaned = skill.strip()
+        if cleaned and cleaned not in seen_skills:
+            seen_skills.append(cleaned)
+    if not seen_skills:
+        return []
+
+    counters: dict[str, Counter[str]] = {
+        skill: Counter({state: 0 for state in EVIDENCE_STATES}) for skill in seen_skills
+    }
+    mention_totals: Counter[str] = Counter()
+
+    for row in rows:
+        for match in _as_match_dicts(getattr(row, "requirement_matches", None)):
+            requirement_text = str(match.get("text", ""))
+            state = _evidence_state(match.get("evidence_state"))
+            for skill in seen_skills:
+                if _skill_mentions_requirement(skill, requirement_text):
+                    counters[skill][state] += 1
+                    mention_totals[skill] += 1
+
+    return [
+        ProfileSkillCoverage(
+            skill=skill,
+            requirement_mentions=mention_totals[skill],
+            confirmed=counters[skill]["confirmed"],
+            partial=counters[skill]["partial"],
+            not_found=counters[skill]["not_found"],
+            contradicted=counters[skill]["contradicted"],
+            unknown=counters[skill]["unknown"],
+        )
+        for skill in seen_skills
+    ]
+
+
 def _evidence_state(value: object) -> str:
     """Map a stored evidence_state onto the known bucket set."""
     if isinstance(value, str) and value in EVIDENCE_STATES:
@@ -376,7 +537,208 @@ def _evidence_state(value: object) -> str:
     return "unknown"
 
 
-def build_analytics(rows: list[object]) -> AnalyticsRead:
+def _empty_edit_stats() -> EditStats:
+    return EditStats(
+        total_edits=0,
+        pending=0,
+        accepted=0,
+        rejected=0,
+        supported_rewrite_generated=0,
+        supported_rewrite_accepted=0,
+        supported_rewrite_rejected=0,
+        supported_rewrite_accept_rate=None,
+    )
+
+
+def _build_edit_stats(edits: list[object]) -> tuple[EditStats, list[EditKindCount]]:
+    """Summarize owned edit rows for funnel metrics."""
+    kind_counter: Counter[str] = Counter()
+    pending = 0
+    accepted = 0
+    rejected = 0
+    supported_generated = 0
+    supported_accepted = 0
+    supported_rejected = 0
+    for edit in edits:
+        kind = str(getattr(edit, "kind", "unknown"))
+        status = str(getattr(edit, "status", "pending"))
+        kind_counter[kind] += 1
+        if status == "pending":
+            pending += 1
+        elif status == "accepted":
+            accepted += 1
+        elif status == "rejected":
+            rejected += 1
+        if kind == "supported_rewrite":
+            supported_generated += 1
+            if status == "accepted":
+                supported_accepted += 1
+            elif status == "rejected":
+                supported_rejected += 1
+    reviewed_supported = supported_accepted + supported_rejected
+    accept_rate = (
+        round(supported_accepted / reviewed_supported, 3) if reviewed_supported > 0 else None
+    )
+    stats = EditStats(
+        total_edits=len(edits),
+        pending=pending,
+        accepted=accepted,
+        rejected=rejected,
+        supported_rewrite_generated=supported_generated,
+        supported_rewrite_accepted=supported_accepted,
+        supported_rewrite_rejected=supported_rejected,
+        supported_rewrite_accept_rate=accept_rate,
+    )
+    kinds = [
+        EditKindCount(kind=kind, count=count)
+        for kind, count in sorted(kind_counter.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    return stats, kinds
+
+
+def _int_score(row: object, field: str) -> int | None:
+    value = getattr(row, field, None)
+    return value if isinstance(value, int) else None
+
+
+def _readiness_score(row: object) -> int | None:
+    readiness = _int_score(row, "application_readiness_score")
+    if readiness is not None:
+        return readiness
+    return _int_score(row, "overall_score")
+
+
+def _build_version_deltas(rows: list[object], versions: list[object]) -> list[VersionDelta]:
+    """Compare original analysis readiness to the latest accepted version."""
+    row_by_id = {getattr(row, "id"): row for row in rows}
+    by_analysis: dict[object, list[object]] = defaultdict(list)
+    for version in versions:
+        by_analysis[getattr(version, "analysis_id")].append(version)
+    deltas: list[VersionDelta] = []
+    for analysis_id, version_list in by_analysis.items():
+        row = row_by_id.get(analysis_id)
+        if row is None or not version_list:
+            continue
+        latest = max(version_list, key=lambda item: int(getattr(item, "version_number", 0)))
+        original = _readiness_score(row)
+        latest_readiness = _readiness_score(latest)
+        delta: int | None = None
+        if original is not None and latest_readiness is not None:
+            delta = latest_readiness - original
+        deltas.append(
+            VersionDelta(
+                analysis_id=analysis_id,
+                file_name=str(getattr(row, "file_name", "")),
+                target_role=str(getattr(row, "target_role", "")),
+                original_readiness=original,
+                latest_version_readiness=latest_readiness,
+                delta=delta,
+                latest_version_number=int(getattr(latest, "version_number", 0)),
+                rubric_version=getattr(latest, "rubric_version", None),
+                original_job_fit=_int_score(row, "job_fit_score"),
+                latest_job_fit=_int_score(latest, "job_fit_score"),
+                original_alignment=_int_score(row, "resume_alignment_score"),
+                latest_alignment=_int_score(latest, "resume_alignment_score"),
+                original_terminology=_int_score(row, "ats_score"),
+                latest_terminology=_int_score(latest, "ats_score"),
+            )
+        )
+    return sorted(deltas, key=lambda item: item.file_name.lower())
+
+
+def _build_requirement_heatmap(rows: list[object]) -> list[RequirementHeatCell]:
+    """Top requirement × role × evidence_state cells from stored matches."""
+    cell_counter: Counter[tuple[str, str, str]] = Counter()
+    for row in rows:
+        role = str(getattr(row, "target_role", "") or "Unknown")
+        for match in _as_match_dicts(getattr(row, "requirement_matches", None)):
+            text = match.get("text")
+            if not isinstance(text, str):
+                continue
+            requirement = text.strip()[:120]
+            if not requirement:
+                continue
+            state = _evidence_state(match.get("evidence_state"))
+            cell_counter[(requirement, role, state)] += 1
+    return [
+        RequirementHeatCell(
+            requirement_text=key[0],
+            target_role=key[1],
+            evidence_state=key[2],
+            count=count,
+        )
+        for key, count in sorted(cell_counter.items(), key=lambda item: (-item[1], item[0]))[
+            :HEATMAP_CELL_LIMIT
+        ]
+    ]
+
+
+def _normalize_importance(value: object) -> str:
+    if isinstance(value, str) and value in IMPORTANCE_LEVELS:
+        return value
+    return "contextual"
+
+
+def _build_importance_evidence(
+    importance_counter: Counter[tuple[str, str]],
+) -> list[ImportanceEvidenceBucket]:
+    """Flatten importance × evidence counts in stable order."""
+    buckets: list[ImportanceEvidenceBucket] = []
+    for importance in IMPORTANCE_LEVELS:
+        for state in EVIDENCE_STATES:
+            count = importance_counter[(importance, state)]
+            if count:
+                buckets.append(
+                    ImportanceEvidenceBucket(importance=importance, state=state, count=count)
+                )
+    return buckets
+
+
+def _build_role_coverage_matrix(rows: list[object]) -> list[RoleCoverageRow]:
+    """Matrix rows: per target_role, top requirements with state counts."""
+    matrix: dict[tuple[str, str], Counter[str]] = defaultdict(
+        lambda: Counter({state: 0 for state in EVIDENCE_STATES})
+    )
+    for row in rows:
+        role = str(getattr(row, "target_role", "") or "Unknown")
+        for match in _as_match_dicts(getattr(row, "requirement_matches", None)):
+            text = match.get("text")
+            if not isinstance(text, str):
+                continue
+            requirement = text.strip()[:120]
+            if not requirement:
+                continue
+            state = _evidence_state(match.get("evidence_state"))
+            matrix[(role, requirement)][state] += 1
+    by_role: dict[str, list[tuple[str, Counter[str], int]]] = defaultdict(list)
+    for (role, requirement), states in matrix.items():
+        total = sum(states.values())
+        by_role[role].append((requirement, states, total))
+    output: list[RoleCoverageRow] = []
+    for role in sorted(by_role.keys()):
+        ranked = sorted(by_role[role], key=lambda item: (-item[2], item[0]))[:ROLE_MATRIX_ROWS_PER_ROLE]
+        for requirement, states, _total in ranked:
+            output.append(
+                RoleCoverageRow(
+                    target_role=role,
+                    requirement_text=requirement,
+                    confirmed=states["confirmed"],
+                    partial=states["partial"],
+                    not_found=states["not_found"],
+                    contradicted=states["contradicted"],
+                    unknown=states["unknown"],
+                )
+            )
+    return output
+
+
+def build_analytics(
+    rows: list[object],
+    *,
+    edits: list[object] | None = None,
+    versions: list[object] | None = None,
+    profile_skills: list[str] | None = None,
+) -> AnalyticsRead:
     """
     Fold owned analysis rows into AnalyticsRead.
 
@@ -384,6 +746,7 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
     not coerced to zero. Resume text is never copied onto the payload.
     """
     evidence_counts: Counter[str] = Counter({state: 0 for state in EVIDENCE_STATES})
+    importance_counter: Counter[tuple[str, str]] = Counter()
     term_counts: Counter[str] = Counter()
     role_stats: dict[str, dict[str, object]] = defaultdict(
         lambda: {
@@ -420,9 +783,10 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
         for match in matches:
             state = _evidence_state(match.get("evidence_state"))
             evidence_counts[state] += 1
+            importance = _normalize_importance(match.get("importance"))
+            importance_counter[(importance, state)] += 1
             if state in stats:
                 stats[state] = int(stats[state]) + 1
-            importance = match.get("importance")
             if importance == "mandatory" and state in MANDATORY_GAP_STATES:
                 mandatory_gap_count += 1
         for term in _as_terms(getattr(row, "keywords_missing", None)):
@@ -440,6 +804,7 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
             job_fit_score=getattr(row, "job_fit_score", None),
             resume_alignment_score=getattr(row, "resume_alignment_score", None),
             application_readiness_score=getattr(row, "application_readiness_score", None),
+            ats_score=_int_score(row, "ats_score"),
             rubric_version=getattr(row, "rubric_version", None),
             blocked_by_requirement=bool(getattr(row, "blocked_by_requirement", False)),
         )
@@ -469,6 +834,15 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
             :MISSING_TERM_LIMIT
         ]
     ]
+    edit_stats, edit_kinds = (
+        _build_edit_stats(edits) if edits else (_empty_edit_stats(), [])
+    )
+    version_deltas = _build_version_deltas(rows, versions or [])
+    requirement_heatmap = _build_requirement_heatmap(rows)
+    importance_evidence = _build_importance_evidence(importance_counter)
+    role_coverage_matrix = _build_role_coverage_matrix(rows)
+    eligibility_rollups = _build_eligibility_rollups(rows)
+    profile_skill_coverage = _build_profile_skill_coverage(rows, profile_skills or [])
     return AnalyticsRead(
         analysis_count=len(rows),
         requirement_count=requirement_count,
@@ -480,4 +854,12 @@ def build_analytics(rows: list[object]) -> AnalyticsRead:
         scores=score_points,
         roles=roles,
         missing_terminology=missing_terminology,
+        edits=edit_stats,
+        edit_kinds=edit_kinds,
+        version_deltas=version_deltas,
+        requirement_heatmap=requirement_heatmap,
+        importance_evidence=importance_evidence,
+        role_coverage_matrix=role_coverage_matrix,
+        eligibility_rollups=eligibility_rollups,
+        profile_skill_coverage=profile_skill_coverage,
     )

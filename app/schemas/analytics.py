@@ -26,6 +26,7 @@ class ScorePoint(BaseModel):
     job_fit_score: int | None = None
     resume_alignment_score: int | None = None
     application_readiness_score: int | None = None
+    ats_score: int | None = None
     rubric_version: str | None = None
     blocked_by_requirement: bool = False
 
@@ -54,6 +55,116 @@ class TermCount(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class EditKindCount(BaseModel):
+    """Edit suggestions grouped by kind."""
+
+    kind: str
+    count: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class EditStats(BaseModel):
+    """Owner-scoped edit funnel for supported rewrites."""
+
+    total_edits: int = Field(..., ge=0)
+    pending: int = Field(..., ge=0)
+    accepted: int = Field(..., ge=0)
+    rejected: int = Field(..., ge=0)
+    supported_rewrite_generated: int = Field(..., ge=0)
+    supported_rewrite_accepted: int = Field(..., ge=0)
+    supported_rewrite_rejected: int = Field(..., ge=0)
+    supported_rewrite_accept_rate: float | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class VersionDelta(BaseModel):
+    """Original analysis readiness vs latest accepted version."""
+
+    analysis_id: UUID
+    file_name: str
+    target_role: str
+    original_readiness: int | None = None
+    latest_version_readiness: int | None = None
+    delta: int | None = None
+    latest_version_number: int | None = None
+    rubric_version: str | None = None
+    original_job_fit: int | None = None
+    latest_job_fit: int | None = None
+    original_alignment: int | None = None
+    latest_alignment: int | None = None
+    original_terminology: int | None = None
+    latest_terminology: int | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class ImportanceEvidenceBucket(BaseModel):
+    """Requirement matches grouped by JD importance and evidence state."""
+
+    importance: str
+    state: str
+    count: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class RoleCoverageRow(BaseModel):
+    """One requirement row in a role-grouped coverage matrix."""
+
+    target_role: str
+    requirement_text: str
+    confirmed: int = Field(..., ge=0)
+    partial: int = Field(..., ge=0)
+    not_found: int = Field(..., ge=0)
+    contradicted: int = Field(..., ge=0)
+    unknown: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class EligibilityRollup(BaseModel):
+    """Eligibility constraint text aggregated across owned analyses."""
+
+    text: str
+    confirmed_met: int = Field(..., ge=0)
+    confirmed_not_met: int = Field(..., ge=0)
+    unknown: int = Field(..., ge=0)
+    not_applicable: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class ProfileSkillCoverage(BaseModel):
+    """
+    How often JD requirement rows mention a profile skill string.
+
+    Matching is a simple normalized substring check — not semantic skill inference.
+    """
+
+    skill: str
+    requirement_mentions: int = Field(..., ge=0)
+    confirmed: int = Field(..., ge=0)
+    partial: int = Field(..., ge=0)
+    not_found: int = Field(..., ge=0)
+    contradicted: int = Field(..., ge=0)
+    unknown: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class RequirementHeatCell(BaseModel):
+    """Requirement text × evidence state count within one target_role."""
+
+    requirement_text: str
+    target_role: str
+    evidence_state: str
+    count: int = Field(..., ge=1)
+
+    model_config = {"extra": "forbid"}
+
+
 class AnalyticsRead(BaseModel):
     """Owner-scoped analytics. Not a hiring probability or cross-user benchmark."""
 
@@ -67,5 +178,13 @@ class AnalyticsRead(BaseModel):
     scores: list[ScorePoint]
     roles: list[RoleBreakdown]
     missing_terminology: list[TermCount] = Field(default_factory=list)
+    edits: EditStats
+    edit_kinds: list[EditKindCount] = Field(default_factory=list)
+    version_deltas: list[VersionDelta] = Field(default_factory=list)
+    requirement_heatmap: list[RequirementHeatCell] = Field(default_factory=list)
+    importance_evidence: list[ImportanceEvidenceBucket] = Field(default_factory=list)
+    role_coverage_matrix: list[RoleCoverageRow] = Field(default_factory=list)
+    eligibility_rollups: list[EligibilityRollup] = Field(default_factory=list)
+    profile_skill_coverage: list[ProfileSkillCoverage] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -11,7 +13,11 @@ from pathlib import Path
 
 load_dotenv()  # Load .env before anything else
 
-from app.ai.local_inference import LocalModelNotFoundError, require_local_model_file
+from app.ai.local_inference import (
+    LocalModelNotFoundError,
+    require_local_model_file,
+    warm_local_model_weights,
+)
 from app.api.routes.auth import router as auth_router
 from app.api.routes.resume import router as resume_router
 from app.api.routes.roadmap import router as roadmap_router
@@ -22,10 +28,23 @@ from app.core.startup import verify_database_connection
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Warm local GGUF weights when configured so first analysis is faster."""
+    if settings.LOCAL_MODEL_PATH.strip():
+        try:
+            await asyncio.to_thread(warm_local_model_weights)
+            logger.info("Local model weights warmed")
+        except Exception:
+            logger.exception("Local model warm-up failed; analyze may still load weights on demand")
+    yield
+
+
 app = FastAPI(
     title="CareerOS",
     description="AI-powered career operating system",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -90,7 +109,13 @@ if not settings.is_production:
 
             index_file = FRONTEND_DIR / "index.html"
             if index_file.exists():
-                return FileResponse(index_file)
+                return FileResponse(
+                    index_file,
+                    headers={
+                        "Cache-Control": "no-cache, no-store, must-revalidate",
+                        "Pragma": "no-cache",
+                    },
+                )
 
             return JSONResponse(
                 status_code=404,

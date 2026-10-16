@@ -52,6 +52,22 @@ def require_local_model_file(model_path: str) -> Path:
     return path
 
 
+def warm_local_model_weights() -> None:
+    """
+    Load GGUF weights into memory when configured.
+
+    Called at API startup so the first analyze request is not blocked on load
+    time behind a short reverse-proxy timeout.
+    """
+    try:
+        adapter = build_local_adapter()
+    except LocalModelNotFoundError:
+        return
+    if isinstance(adapter, LlamaCppAdapter):
+        with _llama_thread_lock:
+            adapter._load_llama()
+
+
 def build_local_adapter() -> LocalInferenceAdapter:
     """Build the configured local GGUF adapter after verifying the weight file exists."""
     path = require_local_model_file(settings.LOCAL_MODEL_PATH)

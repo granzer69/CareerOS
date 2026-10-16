@@ -33,7 +33,8 @@ CareerOS is a **signed-in, JD-driven resume copilot**. It is not a placement pre
 - `GET /health` (public) — `{ status, database, local_model }`
 - `POST /api/v1/resume/analyze` (multipart: `file`, `target_role`, `job_description`)
 - `GET /api/v1/resume/analyses`, `GET /api/v1/resume/analyses/{id}`
-- `GET /api/v1/resume/analytics` — owner-scoped aggregate (last 100 analyses). Not a hiring probability
+- `GET /api/v1/resume/analytics` — owner-scoped aggregate (last 100 analyses). Optional `target_role` query filter. Not a hiring probability
+- `GET /api/v1/user-profile/me`, `POST|PUT /api/v1/user-profile/{user_id}` — owner-scoped profile
 - Edits/versions: `.../edits`, `.../edits/{id}/accept|reject`, `.../versions`, `.../restore-original`
 
 Missing GGUF → 503 `model_unavailable`. Never add Anthropic, OpenAI, Gemini, or any hosted fallback in the UI or client.
