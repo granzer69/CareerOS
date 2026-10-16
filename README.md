@@ -92,7 +92,8 @@ The default Render free instance does not have enough RAM for a GGUF. Leave `LOC
 ### Deploy notes
 
 - **Render**: build `pip install -r requirements-prod.txt`, pre-deploy `alembic upgrade head`, start `bash scripts/start.sh`, health `/health`
-- **Vercel**: root `frontend`, build `npm run build`, env `BACKEND_URL=https://<render-service>.onrender.com`
+- **Vercel API** (when the API is not on Render): framework FastAPI, repository root, `ENVIRONMENT=production`, `RUN_MIGRATIONS=true`, Postgres `DATABASE_URL`, `ALLOWED_ORIGINS=https://<frontend-host>`. Leave `LOCAL_MODEL_PATH` empty unless that host can hold a GGUF file.
+- **Vercel UI**: root `frontend`, build `npm run build`, env `BACKEND_URL=https://<api-host>`
 
 ## Testing
 

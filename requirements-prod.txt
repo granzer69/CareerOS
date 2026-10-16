@@ -1,5 +1,5 @@
 # Production dependencies only — excludes test tools and unused heavy packages.
-# chromadb and redis are listed in requirements.txt but not imported anywhere in app/.
+# chromadb and redis are not imported anywhere in app/ and are not installed.
 # llama-cpp-python is optional: install from requirements-local-inference.txt on
 # hosts that will run a local GGUF. The free Render service cannot load weights.
 
