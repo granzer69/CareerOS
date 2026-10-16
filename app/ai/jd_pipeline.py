@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from pydantic import ValidationError
 
@@ -12,6 +15,11 @@ from app.ai.local_inference import (
     LocalModelNotFoundError,
     build_local_adapter,
     resolve_local_model_path,
+)
+from app.core.config import settings
+from app.services.jd_understanding_deterministic import (
+    deterministic_jd_understanding,
+    merge_jd_understanding,
 )
 from app.ai.resume_analyzer import _coerce_json_object, _escape_braces
 from app.schemas.evidence import ModelRequirement, RequirementMatch
@@ -56,22 +64,40 @@ async def understand_jd_with_model(
 
     for _attempt in range(_MAX_RETRIES):
         try:
-            raw_text = await inference.complete(prompt)
-        except (LocalModelNotFoundError, LocalInferenceError):
+            raw_text = await inference.complete(
+                prompt,
+                max_tokens=settings.LOCAL_MODEL_JD_UNDERSTANDING_MAX_TOKENS,
+            )
+        except LocalModelNotFoundError:
             raise
+        except LocalInferenceError as exc:
+            logger.warning("JD understanding inference failed; using deterministic objectives: %s", exc)
+            return deterministic_jd_understanding(
+                target_role=target_role,
+                job_description=job_description,
+            )
         except Exception as exc:
             raise LocalInferenceError("Local inference failed") from exc
 
         try:
             parsed = json.loads(_coerce_json_object(raw_text))
-            return JDUnderstanding.model_validate(parsed)
+            modeled = JDUnderstanding.model_validate(parsed)
+            return merge_jd_understanding(
+                modeled,
+                target_role=target_role,
+                job_description=job_description,
+            )
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc
             continue
 
-    raise ValueError(
-        f"Model output was not valid JD understanding JSON after {_MAX_RETRIES} attempts: {last_error}"
+    baseline = deterministic_jd_understanding(
+        target_role=target_role,
+        job_description=job_description,
     )
+    if last_error is not None:
+        logger.warning("JD understanding JSON invalid; using deterministic objectives: %s", last_error)
+    return baseline
 
 
 def _requirements_batch_json(batch: list[ModelRequirement], start_index: int) -> str:
@@ -134,7 +160,11 @@ async def _match_batch_with_model(
 
     for _attempt in range(_MAX_RETRIES):
         try:
-            raw_text = await inference_complete(adapter, prompt)
+            raw_text = await inference_complete(
+                adapter,
+                prompt,
+                max_tokens=settings.LOCAL_MODEL_EVIDENCE_MAX_TOKENS,
+            )
         except (LocalModelNotFoundError, LocalInferenceError):
             raise
         except Exception as exc:
@@ -169,9 +199,14 @@ async def _match_batch_with_model(
     )
 
 
-async def inference_complete(adapter: LocalInferenceAdapter, prompt: str) -> str:
+async def inference_complete(
+    adapter: LocalInferenceAdapter,
+    prompt: str,
+    *,
+    max_tokens: int | None = None,
+) -> str:
     """Thin wrapper so tests can patch batch completion."""
-    return await adapter.complete(prompt)
+    return await adapter.complete(prompt, max_tokens=max_tokens)
 
 
 async def match_requirements_with_model(

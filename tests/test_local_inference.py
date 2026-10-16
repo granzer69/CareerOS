@@ -86,7 +86,7 @@ class FakeAdapter:
     def __init__(self, payload: str) -> None:
         self._payload = payload
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
         if "requirement_index" in prompt:
             return json.dumps({"matches": []})
         if '"requirements"' in prompt and "evidence_state" not in prompt:
@@ -100,7 +100,7 @@ class RaisingAdapter:
     def __init__(self, exc: BaseException) -> None:
         self._exc = exc
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
         raise self._exc
 
 

@@ -5,7 +5,7 @@ Job title (optional): {target_role}
 Job description:
 {job_description}
 
-Return ONLY JSON:
+Return ONLY JSON (no markdown):
 {{
   "role_summary": "2-4 sentences: what this role does and who it serves",
   "objectives": ["3-6 outcome-oriented goals the hire should achieve"],
@@ -13,8 +13,17 @@ Return ONLY JSON:
   "estimated_level": "junior|mid|senior"
 }}
 
+Example shape (different content):
+{{
+  "role_summary": "Backend intern builds APIs for student-facing tools with mentorship.",
+  "objectives": ["Ship Python REST endpoints with tests", "Collaborate in code review"],
+  "success_criteria": ["Authorized to work without sponsorship"],
+  "estimated_level": "junior"
+}}
+
 Rules:
 - Base every objective on the JD text. Do not invent employers, tools, or years not stated.
 - Objectives are outcomes (ship features, support customers, lead a squad), not single buzzwords.
+- Include eligibility constraints (work authorization, clearance) in success_criteria when stated.
 - Ignore EEO/benefits boilerplate unless it states a hard constraint.
 - No scores, no hiring probability, no resume discussion.

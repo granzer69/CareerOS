@@ -28,7 +28,7 @@ class LocalInferenceError(Exception):
 
 
 class LocalInferenceAdapter(Protocol):
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
         """Return raw completion text for a local weight file already on disk."""
 
 
@@ -114,12 +114,12 @@ class LlamaCppAdapter:
         self._temperature = temperature
         self._timeout_seconds = timeout_seconds
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
         """Generate completion text from the local GGUF file."""
         require_local_model_file(str(self._model_path))
         try:
             text = await asyncio.wait_for(
-                asyncio.to_thread(self._complete_sync, prompt),
+                asyncio.to_thread(self._complete_sync, prompt, max_tokens),
                 timeout=self._timeout_seconds,
             )
         except LocalModelNotFoundError:
@@ -161,12 +161,13 @@ class LlamaCppAdapter:
         _llama_cache[cache_key] = llm
         return llm
 
-    def _complete_sync(self, prompt: str) -> str:
+    def _complete_sync(self, prompt: str, max_tokens: int | None = None) -> str:
+        token_budget = max_tokens if max_tokens is not None else self._max_tokens
         with _llama_thread_lock:
             llm = self._load_llama()
             result = llm.create_completion(  # type: ignore[attr-defined]
                 prompt,
-                max_tokens=self._max_tokens,
+                max_tokens=token_budget,
                 temperature=self._temperature,
                 echo=False,
             )

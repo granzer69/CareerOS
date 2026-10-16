@@ -37,6 +37,7 @@ from app.schemas.evidence import ModelExtraction
 from app.schemas.jd_insights import JDInsightsRead, JDUnderstanding
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
 from app.services.jd_extraction import derive_target_role, extract_requirements, merge_requirements
+from app.services.jd_understanding_deterministic import deterministic_jd_understanding
 from app.services.scoring import score_application
 
 logger = logging.getLogger(__name__)
@@ -223,10 +224,12 @@ class ResumeService:
                 target_role=stored_role,
                 job_description=cleaned_jd,
             )
-        except (LocalModelNotFoundError, LocalInferenceError) as exc:
-            logger.warning("JD understanding unavailable: %s", exc)
-        except ValueError as exc:
-            logger.warning("JD understanding JSON invalid: %s", exc)
+        except (LocalModelNotFoundError, LocalInferenceError, ValueError) as exc:
+            logger.warning("JD understanding unavailable (%s); using deterministic objectives", exc)
+            understanding = deterministic_jd_understanding(
+                target_role=stored_role,
+                job_description=cleaned_jd,
+            )
 
         try:
             modeled = await extract_requirements_with_model(

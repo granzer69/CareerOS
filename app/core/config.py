@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     LOCAL_MODEL_PATH_EVIDENCE: str = ""
     LOCAL_MODEL_CONTEXT: int = Field(default=4096, ge=512, le=8192)
     LOCAL_MODEL_MAX_TOKENS: int = Field(default=4096, ge=16, le=8192)
+    LOCAL_MODEL_JD_UNDERSTANDING_MAX_TOKENS: int = Field(default=768, ge=64, le=4096)
+    LOCAL_MODEL_EVIDENCE_MAX_TOKENS: int = Field(default=1536, ge=64, le=8192)
     LOCAL_MODEL_TEMPERATURE: float = Field(default=0.0, ge=0.0, le=2.0)
     LOCAL_INFERENCE_TIMEOUT_SECONDS: int = Field(default=120, ge=1, le=600)
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:8000"

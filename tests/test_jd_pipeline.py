@@ -18,7 +18,7 @@ class _StubAdapter:
         self._responses = list(responses)
         self.calls = 0
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str, *, max_tokens: int | None = None) -> str:
         self.calls += 1
         if not self._responses:
             raise RuntimeError("no stub response")
@@ -49,7 +49,8 @@ async def test_understand_jd_parses_objectives() -> None:
         job_description=SAMPLE_JD,
         adapter=adapter,
     )
-    assert len(result.objectives) == 2
+    assert len(result.objectives) >= 2
+    assert "Ship Python services" in result.objectives
     assert result.estimated_level == "junior"
 
 
