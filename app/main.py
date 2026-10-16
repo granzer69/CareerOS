@@ -23,6 +23,7 @@ from app.api.routes.resume import router as resume_router
 from app.api.routes.roadmap import router as roadmap_router
 from app.api.routes.user_profile import router as user_profile_router
 from app.core.config import settings
+from app.core.migrations import apply_startup_migrations
 from app.core.startup import verify_database_connection
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Warm local GGUF weights when configured so first analysis is faster."""
+    """Migrate when requested, then warm local GGUF weights so the first analysis is faster."""
+    await apply_startup_migrations()
     if settings.LOCAL_MODEL_PATH.strip():
         try:
             await asyncio.to_thread(warm_local_model_weights)

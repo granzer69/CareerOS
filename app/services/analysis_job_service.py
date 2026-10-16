@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from app.core.database import async_session_factory
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.database import _async_url, _connect_args
 from app.core.errors import DomainError
 from app.schemas.analysis_job import AnalysisJobRead
 from app.schemas.resume_analysis import ResumeAnalysisRead
@@ -105,6 +109,37 @@ class AnalysisJobNotFoundError(Exception):
     """Raised when a job id is unknown or owned by another user."""
 
 
+def _import_orm_models() -> None:
+    """Register every mapped table before a worker session flushes foreign keys."""
+    import app.models.resume_analysis  # noqa: F401
+    import app.models.resume_edit  # noqa: F401
+    import app.models.user  # noqa: F401
+    import app.models.user_profile  # noqa: F401
+
+
+@asynccontextmanager
+async def open_worker_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Open a session bound to the worker thread's event loop.
+
+    The process-wide async engine belongs to the server loop. Reusing it from
+    ``asyncio.run`` in a worker thread fails on asyncpg.
+    """
+    _import_orm_models()
+    engine = create_async_engine(
+        _async_url,
+        echo=False,
+        pool_pre_ping=True,
+        connect_args=_connect_args,
+    )
+    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            yield session
+    finally:
+        await engine.dispose()
+
+
 def _run_job_blocking(
     *,
     job_id: UUID,
@@ -119,7 +154,7 @@ def _run_job_blocking(
     Blocking worker entrypoint. Returns (terminal_status, analysis, error_code, error_detail).
     """
     async def _execute() -> ResumeAnalysisRead:
-        async with async_session_factory() as session:
+        async with open_worker_session() as session:
             service = ResumeService(db_session=session)
             return await service.analyze_resume(
                 file_bytes=file_bytes,

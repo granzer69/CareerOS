@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     LOCAL_INFERENCE_TIMEOUT_SECONDS: int = Field(default=120, ge=1, le=600)
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:8000"
     ENVIRONMENT: str = "development"
+    # Render runs `alembic upgrade head` before start. Vercel has no pre-deploy hook.
+    RUN_MIGRATIONS: bool = False
 
     @field_validator("ENVIRONMENT")
     @classmethod

@@ -8,7 +8,7 @@ from uuid import UUID
 from docx import Document as DocxDocument
 from PyPDF2 import PdfReader
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.jd_pipeline import match_requirements_hybrid, understand_jd_with_model
@@ -114,6 +114,43 @@ def _raise_if_schema_outdated(exc: Exception) -> None:
         ) from exc
 
 
+def _sanitize_stored_text(text: str) -> str:
+    """Remove characters PostgreSQL UTF-8 text cannot store.
+
+    PDF extractors often emit NUL bytes and unpaired surrogates. Those strings
+    score in memory and then fail the insert, which the API reports as an
+    internal server error.
+    """
+    cleaned: list[str] = []
+    for char in text:
+        code = ord(char)
+        if char in "\t\n\r":
+            cleaned.append(char)
+            continue
+        if code < 32 or 0xD800 <= code <= 0xDFFF:
+            continue
+        cleaned.append(char)
+    return "".join(cleaned)
+
+
+def _raise_if_unstoreable_text(exc: DBAPIError) -> None:
+    """Turn a Postgres encoding rejection into an extraction error instead of a 500."""
+    message = str(exc).lower()
+    if (
+        "0x00" in message
+        or "surrogate" in message
+        or "characternotinrepertoire" in message
+        or "can't encode character" in message
+    ):
+        raise ResumeExtractionError(
+            detail=(
+                "The resume text could not be stored. Export it as DOCX and upload that file."
+            ),
+            code="extraction_failed",
+            http_status=422,
+        ) from exc
+
+
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
     """Extract plain text from a PDF file's bytes."""
     reader = PdfReader(io.BytesIO(file_bytes))
@@ -122,7 +159,7 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
         text = page.extract_text()
         if text:
             pages.append(text)
-    return "\n".join(pages)
+    return _sanitize_stored_text("\n".join(pages))
 
 
 def _extract_text_from_docx(file_bytes: bytes) -> str:
@@ -132,7 +169,7 @@ def _extract_text_from_docx(file_bytes: bytes) -> str:
     for paragraph in doc.paragraphs:
         if paragraph.text.strip():
             paragraphs.append(paragraph.text)
-    return "\n".join(paragraphs)
+    return _sanitize_stored_text("\n".join(paragraphs))
 
 
 class ResumeService:
@@ -160,8 +197,7 @@ class ResumeService:
             ResumeUnsupportedTypeError: File is not PDF or DOCX.
             ResumeExtractionError: Text extraction failed.
             ResumeJobDescriptionError: Job description is empty or too long.
-            ResumeModelUnavailableError: Local weights are missing.
-            ResumeInferenceFailedError: Local generation failed.
+            ResumeInferenceFailedError: Local generation failed after weights were found.
             ResumeAnalysisFailedError: Model returned invalid JSON after retries.
         """
         if len(file_bytes) > MAX_FILE_SIZE_BYTES:
@@ -179,7 +215,7 @@ class ResumeService:
                 http_status=415,
             )
 
-        cleaned_jd = job_description.strip()
+        cleaned_jd = _sanitize_stored_text(job_description).strip()
         if not cleaned_jd:
             raise ResumeJobDescriptionError(
                 detail="A job description is required",
@@ -205,6 +241,7 @@ class ResumeService:
                 http_status=422,
             ) from exc
 
+        resume_text = _sanitize_stored_text(resume_text)
         if not resume_text.strip():
             raise ResumeExtractionError(
                 detail="No readable text found in the uploaded file",
@@ -213,7 +250,7 @@ class ResumeService:
             )
 
         stored_role = derive_target_role(
-            target_role=target_role,
+            target_role=_sanitize_stored_text(target_role),
             job_description=cleaned_jd,
         )
         deterministic = extract_requirements(cleaned_jd)
@@ -239,12 +276,11 @@ class ResumeService:
                 understanding=understanding,
             )
         except LocalModelNotFoundError as exc:
-            logger.exception("Local model weights are not available")
-            raise ResumeModelUnavailableError(
-                detail="Local model weights are not available",
-                code="model_unavailable",
-                http_status=503,
-            ) from exc
+            logger.warning(
+                "Local model weights are not available; scoring deterministic JD requirements only: %s",
+                exc,
+            )
+            modeled = ModelExtraction()
         except LocalInferenceError as exc:
             logger.exception("Local inference failed")
             raise ResumeInferenceFailedError(
@@ -288,9 +324,10 @@ class ResumeService:
                 evidence_method=evidence_method,  # type: ignore[arg-type]
             )
 
+        safe_file_name = _sanitize_stored_text(file_name).strip()[:255] or "resume"
         record = ResumeAnalysis(
             user_id=user_id,
-            file_name=file_name,
+            file_name=safe_file_name,
             target_role=stored_role,
             resume_text=resume_text,
             overall_score=scored.application_readiness_score,
@@ -313,7 +350,13 @@ class ResumeService:
             jd_insights=jd_insights.model_dump() if jd_insights else None,
         )
         self._db_session.add(record)
-        await self._db_session.commit()
+        try:
+            await self._db_session.commit()
+        except DBAPIError as exc:
+            await self._db_session.rollback()
+            _raise_if_unstoreable_text(exc)
+            _raise_if_schema_outdated(exc)
+            raise
         await self._db_session.refresh(record)
 
         return ResumeAnalysisRead.model_validate(record)

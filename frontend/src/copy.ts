@@ -15,7 +15,7 @@ export const HONESTY_COPY = {
     "Scores are rubric v1.0.0: job-fit, resume-alignment, and application-readiness. They are not a probability of being hired or interviewed, and ats_score is terminology coverage — not a vendor ATS result.",
   historyReadiness: "Overall score is application-readiness, not a hiring probability.",
   modelMissing:
-    "Local model: not configured. Analysis and edit generation need a GGUF file on the API host (LOCAL_MODEL_PATH). Missing weights return 503 model_unavailable — CareerOS does not call a hosted LLM and will not download weights for you.",
+    "Local model: not configured. Scores still come from the job description and rubric v1.0.0. Suggested rewrites need a GGUF file at LOCAL_MODEL_PATH and return 503 model_unavailable until that file is on the API host. CareerOS does not call a hosted LLM and will not download weights.",
   modelConfigured:
     "Local model file is present. Scores still come from rubric v1.0.0, not the model.",
   analyticsScope:

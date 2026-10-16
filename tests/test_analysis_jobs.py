@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Generator
+from contextlib import asynccontextmanager
 from uuid import UUID, uuid4
 
 import pytest
@@ -62,6 +63,38 @@ def resume_app(db_session_mock: AsyncSession, current_user_id: UUID) -> FastAPI:
 def resume_client(resume_app: FastAPI) -> Generator[TestClient, None, None]:
     with TestClient(resume_app) as client:
         yield client
+
+
+def test_worker_uses_a_loop_local_session(mocker: pytest.MockFixture) -> None:
+    """The background worker must not reuse the server event-loop's async engine."""
+    from app.services import analysis_job_service
+
+    sentinel = object()
+
+    @asynccontextmanager
+    async def _fake_session() -> AsyncGenerator[object, None]:
+        yield sentinel
+
+    mocker.patch.object(analysis_job_service, "open_worker_session", _fake_session)
+    analyze = mocker.patch.object(
+        ResumeService,
+        "analyze_resume",
+        mocker.AsyncMock(return_value="scored"),
+    )
+    status, analysis, error_code, error_detail = analysis_job_service._run_job_blocking(
+        job_id=uuid4(),
+        user_id=uuid4(),
+        file_bytes=b"%PDF-1.4\n",
+        file_name="cv.pdf",
+        content_type="application/pdf",
+        target_role="Engineer",
+        job_description="Required: Python",
+    )
+    assert status == "completed"
+    assert analysis == "scored"
+    assert error_code is None
+    assert error_detail is None
+    assert analyze.await_count == 1
 
 
 def test_analyze_jobs_endpoint_returns_202(

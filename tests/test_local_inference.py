@@ -178,27 +178,41 @@ async def test_mocked_adapter_returns_resume_analysis_read_shape(
     db_session_mock.commit.assert_awaited()
 
 
-def test_missing_weights_return_model_unavailable(mocker: MockerFixture) -> None:
-    """A missing GGUF file returns 503 model_unavailable without leaking the path or importing llama_cpp."""
+def test_missing_weights_score_from_the_jd_without_loading_llama(mocker: MockerFixture) -> None:
+    """A missing GGUF file still returns rubric scores and does not import llama_cpp."""
+    import asyncio
+
+    from app.core.startup import initialize_database
+
     missing_path = "/tmp/careeros-missing-model.gguf"
     mocker.patch.object(settings, "LOCAL_MODEL_PATH", missing_path)
     _patch_extraction(mocker)
+    asyncio.run(initialize_database())
 
     with pytest.raises(LocalModelNotFoundError):
         build_local_adapter()
 
     with TestClient(app) as client:
+        register = client.post(
+            "/api/v1/auth/register",
+            json={"email": f"missing-weights-{uuid4()}@example.com", "password": "missing-weights-password"},
+        )
+        assert register.status_code == 201
+        token = register.json()["access_token"]
         response = client.post(
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
             data=_analyze_form(),
-            headers=_auth_headers(),
+            headers={"Authorization": f"Bearer {token}"},
         )
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "model_unavailable"
-    assert body["detail"]["detail"] == "Local model weights are not available"
+    assert body["rubric_version"] == RUBRIC_VERSION
+    assert body["jd_insights"]["evidence_method"] == "lexical_fallback"
+    texts = {item["text"] for item in body["requirement_matches"]}
+    assert "Required: Python" in texts
+    assert "Required: FastAPI" in texts
     assert missing_path not in response.text
     assert "llama_cpp" not in sys.modules
 
@@ -317,6 +331,47 @@ def test_missing_job_description_returns_422(mocker: MockerFixture) -> None:
         )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_nul_and_surrogate_resume_text_is_stored_without_those_characters(
+    db_session_mock: AsyncSession,
+    mocker: MockerFixture,
+) -> None:
+    """PDF NULs and unpaired surrogates are removed before the database insert."""
+    mocker.patch(
+        "app.services.resume_service._extract_text_from_pdf",
+        return_value="Python\x00 engineer \ud800 FastAPI",
+    )
+    patch_all_build_local_adapter(mocker, RaisingAdapter(LocalModelNotFoundError("missing")))
+    db_session_mock.refresh.side_effect = _assign_persisted_fields
+    service = ResumeService(db_session=db_session_mock)
+
+    result = await service.analyze_resume(
+        file_bytes=b"%PDF-fake",
+        file_name="cv\x00.pdf",
+        content_type="application/pdf",
+        target_role="Software\x00 Developer",
+        job_description="Required: Python\x00\nRequired: FastAPI \ud800",
+        user_id=UUID("00000000-0000-0000-0000-000000000001"),
+    )
+
+    persisted = db_session_mock.add.call_args[0][0]
+    stored = " ".join(
+        [
+            persisted.resume_text,
+            persisted.job_description or "",
+            persisted.file_name,
+            persisted.target_role,
+            *(item.get("text", "") for item in persisted.requirement_matches),
+        ]
+    )
+    assert "\x00" not in stored
+    assert "\ud800" not in stored
+    assert "Python" in persisted.resume_text
+    assert "FastAPI" in persisted.resume_text
+    assert persisted.file_name == "cv.pdf"
+    assert result.rubric_version == RUBRIC_VERSION
 
 
 def test_require_local_model_file_rejects_urls() -> None:
