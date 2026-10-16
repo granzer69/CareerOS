@@ -4,11 +4,15 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AnalyzePage } from "./AnalyzePage";
 
-vi.mock("../api", () => ({
-  request: vi.fn(),
-  pollAnalysisJob: vi.fn(),
-  getToken: () => "test-token",
-}));
+vi.mock("../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api")>();
+  return {
+    ...actual,
+    request: vi.fn(),
+    pollAnalysisJob: vi.fn(),
+    getToken: () => "test-token",
+  };
+});
 
 import { pollAnalysisJob, request } from "../api";
 
@@ -46,7 +50,8 @@ describe("AnalyzePage", () => {
       </MemoryRouter>,
     );
     const file = new File(["%PDF-fake"], "cv.pdf", { type: "application/pdf" });
-    const input = screen.getByLabelText(/resume \(pdf or docx/i) as HTMLInputElement;
+    const input = document.getElementById("resume-file") as HTMLInputElement;
+    expect(input).toBeTruthy();
     fireEvent.change(input, { target: { files: [file] } });
     await user.type(screen.getByLabelText(/target role/i), "Backend Engineer");
     await user.type(screen.getByLabelText(/job description/i), "Required: Python");

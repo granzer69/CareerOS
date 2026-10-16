@@ -29,11 +29,12 @@ Honest scope: JD-driven resume evidence and rubric scores for signed-in owners �
 
 ### 2. Overall UI/UX experience
 
+**Shipped (Slice 8 polish):** top bar separation, typography scale, button/hover/focus on forms, loading skeleton card, centered empty states with primary CTA, scrollable table chrome on History + analytics charts.
+
 - Onboarding checklist (first analysis, first profile save, first accepted rewrite)
 - Clearer analysis detail hierarchy: scores → blocked/eligibility → evidence table → edits
-- Empty states and errors aligned with `careeros-student-ux` copy; no fabricated rows or scores
-- Loading skeletons on History, Analytics, and Analysis detail
-- Design-system pass (`careeros-design-system` skill): typography scale, focus states, dark mode (optional)
+- Loading skeleton on Analysis detail (History/Analytics use skeleton card)
+- Optional: bottom nav on small viewports; dark mode
 
 ### 3. JD understanding (“derive everything from the JD”)
 

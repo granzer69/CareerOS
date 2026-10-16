@@ -57,6 +57,17 @@ export function parseApiError(payload: unknown, fallback: string): ApiError {
   return { message: fallback };
 }
 
+/** Map technical API/job errors to student-facing copy. */
+export function userFacingErrorMessage(message: string): string {
+  if (/not valid analysis json/i.test(message)) {
+    return "Analysis failed. Please try again. If it keeps failing, ask your admin to check the local model on the server.";
+  }
+  if (/resume analysis failed/i.test(message) && message.length < 80) {
+    return "Analysis failed. Please try again.";
+  }
+  return message;
+}
+
 export function actionableMessage(error: ApiError): string {
   switch (error.code) {
     case "unauthorized":
@@ -89,7 +100,7 @@ export function actionableMessage(error: ApiError): string {
     case "not_found":
       return "That resource was not found for your account.";
     default:
-      return error.message;
+      return userFacingErrorMessage(error.message);
   }
 }
 

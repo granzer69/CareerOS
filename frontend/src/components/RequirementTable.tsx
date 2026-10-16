@@ -7,6 +7,7 @@ export function RequirementTable({ matches }: { matches: RequirementMatch[] }) {
   }
 
   return (
+    <div className="table-scroll">
     <table>
       <thead>
         <tr>
@@ -34,5 +35,6 @@ export function RequirementTable({ matches }: { matches: RequirementMatch[] }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

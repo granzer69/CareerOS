@@ -37,16 +37,19 @@ export function HistoryPage() {
   if (rows.length === 0) {
     return (
       <EmptyState title="History" action={<Link to="/">Go to analyze</Link>}>
-        <p>No analyses yet. {STUDIO_COPY.emptyHistory}</p>
+        <p>{STUDIO_COPY.emptyHistory}</p>
       </EmptyState>
     );
   }
 
   return (
-    <div className="card">
-      <p className="eyebrow">Owner-scoped history</p>
-      <h1>Your analyses</h1>
-      <p className="muted">{HONESTY_COPY.historyReadiness}</p>
+    <div className="card history-page">
+      <header className="page-intro">
+        <p className="eyebrow">Owner-scoped history</p>
+        <h1>Your analyses</h1>
+        <p className="muted">{HONESTY_COPY.historyReadiness}</p>
+      </header>
+      <div className="table-scroll">
       <table>
         <thead>
           <tr>
@@ -71,6 +74,7 @@ export function HistoryPage() {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
