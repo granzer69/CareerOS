@@ -333,6 +333,47 @@ def test_missing_job_description_returns_422(mocker: MockerFixture) -> None:
     assert response.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_nul_and_surrogate_resume_text_is_stored_without_those_characters(
+    db_session_mock: AsyncSession,
+    mocker: MockerFixture,
+) -> None:
+    """PDF NULs and unpaired surrogates are removed before the database insert."""
+    mocker.patch(
+        "app.services.resume_service._extract_text_from_pdf",
+        return_value="Python\x00 engineer \ud800 FastAPI",
+    )
+    patch_all_build_local_adapter(mocker, RaisingAdapter(LocalModelNotFoundError("missing")))
+    db_session_mock.refresh.side_effect = _assign_persisted_fields
+    service = ResumeService(db_session=db_session_mock)
+
+    result = await service.analyze_resume(
+        file_bytes=b"%PDF-fake",
+        file_name="cv\x00.pdf",
+        content_type="application/pdf",
+        target_role="Software\x00 Developer",
+        job_description="Required: Python\x00\nRequired: FastAPI \ud800",
+        user_id=UUID("00000000-0000-0000-0000-000000000001"),
+    )
+
+    persisted = db_session_mock.add.call_args[0][0]
+    stored = " ".join(
+        [
+            persisted.resume_text,
+            persisted.job_description or "",
+            persisted.file_name,
+            persisted.target_role,
+            *(item.get("text", "") for item in persisted.requirement_matches),
+        ]
+    )
+    assert "\x00" not in stored
+    assert "\ud800" not in stored
+    assert "Python" in persisted.resume_text
+    assert "FastAPI" in persisted.resume_text
+    assert persisted.file_name == "cv.pdf"
+    assert result.rubric_version == RUBRIC_VERSION
+
+
 def test_require_local_model_file_rejects_urls() -> None:
     """Remote URLs are never treated as local weight files."""
     with pytest.raises(LocalModelNotFoundError):
