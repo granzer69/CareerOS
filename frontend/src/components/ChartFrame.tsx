@@ -21,7 +21,7 @@ export function ChartFrame({
         <p className="footnote">{meta}</p>
       </header>
       <div className="chart-visual">{children}</div>
-      {table}
+      <div className="table-scroll chart-table">{table}</div>
     </section>
   );
 }
