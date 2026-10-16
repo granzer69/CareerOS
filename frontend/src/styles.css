@@ -62,7 +62,9 @@ a {
 .shell {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 24px 20px 48px;
+  padding: 24px 20px calc(48px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
 }
 
 .shell-wide {
@@ -107,7 +109,10 @@ nav {
 nav a {
   color: var(--brand);
   text-decoration: none;
-  padding: 8px 12px;
+  padding: 10px 14px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border-radius: 999px;
   font-family: var(--ui);
   font-size: 0.92rem;
@@ -624,6 +629,32 @@ pre {
   .bar-chart li {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  nav {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .card table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  button,
+  .primary,
+  input[type="file"]::file-selector-button {
+    min-height: 44px;
+  }
+
+  textarea,
+  input:not([type="checkbox"]):not([type="radio"]) {
+    font-size: 16px;
   }
 }
 

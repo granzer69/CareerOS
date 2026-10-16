@@ -6,6 +6,45 @@ from app.schemas.evidence import ModelRequirement, RequirementCategory, Requirem
 
 _BULLET_RE = re.compile(r"^[\s>*\-\u2022\u00b7]+")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+_NUMBERED_RE = re.compile(r"^\s*(?:\d+[\).\]:]|[ivx]+[\).\]:])\s+", re.IGNORECASE)
+_COLON_LIST_RE = re.compile(r"^([^:]{2,80}):\s*(.+)$")
+_SEMICOLON_SPLIT_RE = re.compile(r"\s*;\s+")
+
+_SECTION_RE = re.compile(
+    r"^(?P<label>(?:required|requirements?|qualifications?|must[- ]haves?|minimum\s+qualifications?|"
+    r"preferred|nice[- ]to[- ]have|bonus|optional|responsibilities|what you(?:'|')ll do|"
+    r"what we(?:'|')re looking for|about the role|key skills|skills|technologies|"
+    r"minimum|basic qualifications|preferred qualifications))[\s:]*$",
+    re.IGNORECASE,
+)
+
+_MANDATORY_SECTION_LABELS = (
+    "required",
+    "requirement",
+    "requirements",
+    "qualification",
+    "qualifications",
+    "must-have",
+    "must haves",
+    "must have",
+    "minimum",
+    "minimum qualifications",
+    "basic qualifications",
+    "responsibilities",
+    "what you'll do",
+    "what you will do",
+    "key skills",
+    "skills",
+    "technologies",
+)
+_PREFERRED_SECTION_LABELS = (
+    "preferred",
+    "nice to have",
+    "nice-to-have",
+    "bonus",
+    "optional",
+    "preferred qualifications",
+)
 
 _MANDATORY_MARKERS = (
     "required",
@@ -15,6 +54,7 @@ _MANDATORY_MARKERS = (
     "needs to",
     "minimum",
     "at least",
+    "mandatory",
 )
 _PREFERRED_MARKERS = (
     "preferred",
@@ -23,6 +63,7 @@ _PREFERRED_MARKERS = (
     "plus",
     "bonus",
     "a plus",
+    "ideally",
 )
 _ELIGIBILITY_MARKERS = (
     "work authorization",
@@ -34,6 +75,7 @@ _ELIGIBILITY_MARKERS = (
     "visa",
     "years of experience",
     "year of experience",
+    "eligible to work",
 )
 _BOILERPLATE_MARKERS = (
     "equal opportunity",
@@ -47,6 +89,9 @@ _BOILERPLATE_MARKERS = (
     "fun team",
     "fast-paced",
     "culture",
+    "stipend",
+    "ppo ",
+    "perks",
 )
 _SKILL_MARKERS = (
     "python",
@@ -64,6 +109,11 @@ _SKILL_MARKERS = (
     "experience with",
     "proficient",
     "knowledge of",
+    "familiarity with",
+    "competitive programming",
+    "rest api",
+    "agile",
+    "git",
 )
 _EXPERIENCE_MARKERS = (
     "years",
@@ -72,8 +122,14 @@ _EXPERIENCE_MARKERS = (
     "manage",
     "ownership",
     "stakeholder",
+    "intern",
+    "co-op",
+    "new grad",
 )
 _PROJECT_MARKERS = ("project", "portfolio", "built ", "shipped")
+
+_MAX_REQUIREMENTS = 80
+_MIN_UNIT_CHARS = 4
 
 
 def _normalize(text: str) -> str:
@@ -84,14 +140,57 @@ def _strip_bullet(line: str) -> str:
     return _BULLET_RE.sub("", line).strip()
 
 
+def _section_importance(label: str) -> RequirementImportance | None:
+    """Map a section heading to default importance for lines under it."""
+    lowered = _normalize(label).lower().rstrip(":")
+    if any(lowered == item or lowered.startswith(item) for item in _PREFERRED_SECTION_LABELS):
+        return "preferred"
+    if any(lowered == item or lowered.startswith(item) for item in _MANDATORY_SECTION_LABELS):
+        return "mandatory"
+    return None
+
+
+def _expand_colon_and_list_clauses(unit: str) -> list[str]:
+    """
+    Turn 'Skills: Python, Java, Docker' into separate requirement lines.
+
+    Each part keeps the label prefix so evidence matching stays grounded in JD wording.
+    """
+    cleaned = _normalize(unit)
+    match = _COLON_LIST_RE.match(cleaned)
+    if not match:
+        return [cleaned]
+    label, tail = match.group(1).strip(), match.group(2).strip()
+    if not tail:
+        return [cleaned]
+    if "," not in tail and ";" not in tail and " and " not in tail.lower():
+        return [cleaned]
+    parts = re.split(r",| and ", tail, flags=re.IGNORECASE)
+    parts = [part.strip(" .") for part in parts if part.strip(" .")]
+    if len(parts) <= 1:
+        return [cleaned]
+    return [f"{label}: {part}" for part in parts if len(part) >= 2]
+
+
+def _expand_semicolon_clauses(unit: str) -> list[str]:
+    """Split long lines on semicolons when each clause looks like its own requirement."""
+    cleaned = _normalize(unit)
+    if ";" not in cleaned:
+        return [cleaned]
+    parts = _SEMICOLON_SPLIT_RE.split(cleaned)
+    if len(parts) <= 1:
+        return [cleaned]
+    return [part for part in parts if len(part) >= _MIN_UNIT_CHARS]
+
+
 def split_jd_units(job_description: str) -> list[str]:
     """Split a JD into bullet/line/sentence units for requirement extraction."""
     units: list[str] = []
     for raw_line in job_description.splitlines():
-        line = _strip_bullet(raw_line)
+        line = _strip_bullet(_NUMBERED_RE.sub("", raw_line))
         if not line:
             continue
-        if len(line) > 180:
+        if len(line) > 220:
             units.extend(part.strip() for part in _SENTENCE_RE.split(line) if part.strip())
         else:
             units.append(line)
@@ -99,7 +198,11 @@ def split_jd_units(job_description: str) -> list[str]:
         collapsed = _normalize(job_description)
         if collapsed:
             units.append(collapsed)
-    return units
+    expanded: list[str] = []
+    for unit in units:
+        for semicolon_part in _expand_semicolon_clauses(unit):
+            expanded.extend(_expand_colon_and_list_clauses(semicolon_part))
+    return expanded
 
 
 def _has_marker(text: str, markers: tuple[str, ...]) -> bool:
@@ -107,12 +210,16 @@ def _has_marker(text: str, markers: tuple[str, ...]) -> bool:
     return any(marker in lowered for marker in markers)
 
 
-def _importance(text: str) -> RequirementImportance:
+def _importance(text: str, section_default: RequirementImportance | None) -> RequirementImportance:
     if _has_marker(text, _PREFERRED_MARKERS):
         return "preferred"
     if _has_marker(text, _MANDATORY_MARKERS):
         return "mandatory"
-    return "mandatory"
+    if section_default is not None:
+        return section_default
+    if _has_marker(text, _SKILL_MARKERS) or _has_marker(text, _EXPERIENCE_MARKERS):
+        return "mandatory"
+    return "contextual"
 
 
 def _category(text: str) -> RequirementCategory:
@@ -137,19 +244,29 @@ def extract_requirements(job_description: str) -> list[ModelRequirement]:
     """
     Deterministically extract JD requirements.
 
-    Boilerplate/culture lines are kept as contextual so they can be scored as
-    unknown rather than as missing skills.
+    Section headings (Requirements, Nice to have, etc.) set default importance for
+    following lines. Colon/comma skill lists and numbered bullets are expanded so
+    each scored row maps to JD text.
     """
     requirements: list[ModelRequirement] = []
     seen: set[str] = set()
-    for index, unit in enumerate(split_jd_units(job_description)):
+    section_default: RequirementImportance | None = None
+
+    for unit in split_jd_units(job_description):
         cleaned = _normalize(unit)
-        if len(cleaned) < 8:
+        if len(cleaned) < _MIN_UNIT_CHARS:
             continue
+
+        section_match = _SECTION_RE.match(cleaned)
+        if section_match and len(cleaned) < 64:
+            section_default = _section_importance(section_match.group("label"))
+            continue
+
         key = cleaned.lower()
         if key in seen:
             continue
         seen.add(key)
+
         if _is_boilerplate(cleaned):
             requirements.append(
                 ModelRequirement(
@@ -160,15 +277,16 @@ def extract_requirements(job_description: str) -> list[ModelRequirement]:
                 )
             )
             continue
+
         requirements.append(
             ModelRequirement(
                 text=cleaned[:500],
-                importance=_importance(cleaned),
+                importance=_importance(cleaned, section_default),
                 category=_category(cleaned),
                 is_eligibility=_is_eligibility(cleaned),
             )
         )
-        if index > 40:
+        if len(requirements) >= _MAX_REQUIREMENTS:
             break
     return requirements
 
@@ -189,7 +307,7 @@ def merge_requirements(
     deterministic: list[ModelRequirement],
     modeled: list[ModelRequirement],
 ) -> list[ModelRequirement]:
-    """Union deterministic and model requirements without duplicate phrasing."""
+    """Union deterministic and model requirements; deterministic rows are authoritative."""
     merged = list(deterministic)
     seen = {item.text.lower() for item in merged}
     for item in modeled:

@@ -1,4 +1,4 @@
-Extract structured job requirements from the job description. Use the resume only to avoid inventing requirements that are not in the JD.
+Extract structured job requirements from the job description ONLY. The resume is context to avoid duplicating requirements — never add skills that are not stated in the JD.
 
 Job title (optional): {target_role}
 
@@ -12,7 +12,7 @@ Return ONLY JSON with this schema — no scores, no preamble:
 {{
   "requirements": [
     {{
-      "text": "short requirement",
+      "text": "verbatim or lightly shortened JD line",
       "importance": "mandatory|preferred|contextual",
       "category": "skill|experience|project|context",
       "is_eligibility": false
@@ -22,7 +22,10 @@ Return ONLY JSON with this schema — no scores, no preamble:
 }}
 
 Rules:
-- Do not invent skills, years, licenses, or employers.
-- Do not include overall_score, grade, or ats_score.
-- Prefer concrete JD bullets over culture/boilerplate.
-- If unsure, use importance "contextual".
+- Include EVERY bullet, numbered item, and comma-separated skill under a heading from the JD.
+- Copy requirement wording from the JD; do not paraphrase into new skills.
+- Map section headers: Required/Qualifications/Responsibilities → mandatory; Preferred/Nice to have/Bonus → preferred; EEO/benefits/culture → contextual.
+- Mark work authorization, clearance, visa, and years-of-experience gates as is_eligibility true when the JD states them.
+- Do not invent skills, years, licenses, employers, or compensation.
+- Do not include overall_score, grade, ats_score, or hiring probability fields.
+- If a line is ambiguous, include it as contextual rather than omitting it.
