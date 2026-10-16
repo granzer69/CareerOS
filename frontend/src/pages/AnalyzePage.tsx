@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getToken, pollAnalysisJob, request, userFacingErrorMessage } from "../api";
-import type { AnalysisJobRead } from "../types";
+import { getToken, request, userFacingErrorMessage } from "../api";
 import { isSessionExpiredError } from "../authRedirect";
 import { Banner } from "../components/Banner";
 import { StepList } from "../components/StepList";
@@ -43,14 +42,11 @@ export function AnalyzePage() {
     body.append("target_role", targetRole);
     body.append("job_description", jobDescription);
     try {
-      const job = await request<AnalysisJobRead>("/api/v1/resume/analyze-jobs", {
+      setPendingLabel("Scoring this resume against the job description. Keep this tab open.");
+      const analysis = await request<ResumeAnalysisRead>("/api/v1/resume/analyze", {
         method: "POST",
         body,
       });
-      setPendingLabel(
-        "Running local model on the server — this can take a few minutes. Keep this tab open.",
-      );
-      const analysis = await pollAnalysisJob(job.id);
       navigate(`/analyses/${analysis.id}`);
     } catch (err) {
       if (isSessionExpiredError(err)) {
