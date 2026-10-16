@@ -37,7 +37,7 @@ CareerOS is a **signed-in, JD-driven resume copilot**. It is not a placement pre
 - `GET /api/v1/user-profile/me`, `POST|PUT /api/v1/user-profile/{user_id}` — owner-scoped profile
 - Edits/versions: `.../edits`, `.../edits/{id}/accept|reject`, `.../versions`, `.../restore-original`
 
-Missing GGUF → 503 `model_unavailable`. Never add Anthropic, OpenAI, Gemini, or any hosted fallback in the UI or client.
+Missing GGUF → analyze still scores from deterministic JD requirements and rubric `v1.0.0`. Edit generation returns 503 `model_unavailable`. Never add Anthropic, OpenAI, Gemini, or any hosted fallback in the UI or client.
 
 ## Score field meanings (required copy)
 

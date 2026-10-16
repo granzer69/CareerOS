@@ -51,4 +51,4 @@ Log on the API: status, `code`, latency, whether `LOCAL_MODEL_PATH` exists, rubr
 - `npx tsc --noEmit` and `npm run build` in `frontend/`
 - `python3 -m pytest tests/test_frontend_source.py tests/test_cors.py tests/test_no_hosted_inference.py -q`
 - Confirm `BACKEND_URL` is HTTPS in Vercel and listed in `ALLOWED_ORIGINS`
-- Confirm missing GGUF is a 503 the UI can explain, not a blank page
+- Confirm missing GGUF still produces rubric scores from the JD text, and that edit generation is a 503 the UI can explain

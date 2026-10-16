@@ -160,8 +160,7 @@ class ResumeService:
             ResumeUnsupportedTypeError: File is not PDF or DOCX.
             ResumeExtractionError: Text extraction failed.
             ResumeJobDescriptionError: Job description is empty or too long.
-            ResumeModelUnavailableError: Local weights are missing.
-            ResumeInferenceFailedError: Local generation failed.
+            ResumeInferenceFailedError: Local generation failed after weights were found.
             ResumeAnalysisFailedError: Model returned invalid JSON after retries.
         """
         if len(file_bytes) > MAX_FILE_SIZE_BYTES:
@@ -239,12 +238,11 @@ class ResumeService:
                 understanding=understanding,
             )
         except LocalModelNotFoundError as exc:
-            logger.exception("Local model weights are not available")
-            raise ResumeModelUnavailableError(
-                detail="Local model weights are not available",
-                code="model_unavailable",
-                http_status=503,
-            ) from exc
+            logger.warning(
+                "Local model weights are not available; scoring deterministic JD requirements only: %s",
+                exc,
+            )
+            modeled = ModelExtraction()
         except LocalInferenceError as exc:
             logger.exception("Local inference failed")
             raise ResumeInferenceFailedError(

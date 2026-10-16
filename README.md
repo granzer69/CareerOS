@@ -83,7 +83,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 Analysis runs three local stages when weights are present: (1) infer JD objectives, (2) extract requirements in that context, (3) judge resume evidence semantically (not keyword overlap). Lexical matching is used only when understanding or inference is unavailable.
 6. In `frontend`: `npm install && npm run build` (relative `/api` for local unified mode). For Vercel, set `BACKEND_URL` to the HTTPS API before `npm run build`.
 
-If `LOCAL_MODEL_PATH` is empty, the API still boots. Analyze returns `{"detail": {"detail": "Local model weights are not available", "code": "model_unavailable"}}`.
+If `LOCAL_MODEL_PATH` is empty, the API still boots. Analyze scores the resume from deterministic JD requirements and rubric `v1.0.0`. Edit generation returns `{"detail": {"detail": "Local model weights are not available", "code": "model_unavailable"}}`.
 
 If local sqlite was created before the current Alembic head, `alembic upgrade head` can fail with “table already exists” and history can return 503 `schema_outdated`. Delete the leftover `.db` file and run the upgrade again. `create_all` does not add columns such as `resume_analyses.user_id`.
 

@@ -178,27 +178,41 @@ async def test_mocked_adapter_returns_resume_analysis_read_shape(
     db_session_mock.commit.assert_awaited()
 
 
-def test_missing_weights_return_model_unavailable(mocker: MockerFixture) -> None:
-    """A missing GGUF file returns 503 model_unavailable without leaking the path or importing llama_cpp."""
+def test_missing_weights_score_from_the_jd_without_loading_llama(mocker: MockerFixture) -> None:
+    """A missing GGUF file still returns rubric scores and does not import llama_cpp."""
+    import asyncio
+
+    from app.core.startup import initialize_database
+
     missing_path = "/tmp/careeros-missing-model.gguf"
     mocker.patch.object(settings, "LOCAL_MODEL_PATH", missing_path)
     _patch_extraction(mocker)
+    asyncio.run(initialize_database())
 
     with pytest.raises(LocalModelNotFoundError):
         build_local_adapter()
 
     with TestClient(app) as client:
+        register = client.post(
+            "/api/v1/auth/register",
+            json={"email": f"missing-weights-{uuid4()}@example.com", "password": "missing-weights-password"},
+        )
+        assert register.status_code == 201
+        token = register.json()["access_token"]
         response = client.post(
             "/api/v1/resume/analyze",
             files={"file": ("cv.pdf", b"%PDF-fake", "application/pdf")},
             data=_analyze_form(),
-            headers=_auth_headers(),
+            headers={"Authorization": f"Bearer {token}"},
         )
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "model_unavailable"
-    assert body["detail"]["detail"] == "Local model weights are not available"
+    assert body["rubric_version"] == RUBRIC_VERSION
+    assert body["jd_insights"]["evidence_method"] == "lexical_fallback"
+    texts = {item["text"] for item in body["requirement_matches"]}
+    assert "Required: Python" in texts
+    assert "Required: FastAPI" in texts
     assert missing_path not in response.text
     assert "llama_cpp" not in sys.modules
 
