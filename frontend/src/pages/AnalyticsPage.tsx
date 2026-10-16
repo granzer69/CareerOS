@@ -8,8 +8,11 @@ import { EmptyState } from "../components/EmptyState";
 import { EvidenceMixChart } from "../components/EvidenceMixChart";
 import { KpiTile } from "../components/KpiTile";
 import { LoadingState } from "../components/LoadingState";
+import { ImportanceEvidenceChart } from "../components/ImportanceEvidenceChart";
 import { RequirementHeatmapTable } from "../components/RequirementHeatmapTable";
+import { RoleCoverageMatrix } from "../components/RoleCoverageMatrix";
 import { RubricTrendChart } from "../components/RubricTrendChart";
+import { TerminologyTrendChart } from "../components/TerminologyTrendChart";
 import { ScoreTrendChart } from "../components/ScoreTrendChart";
 import { VersionLiftTable } from "../components/VersionLiftTable";
 import { ANALYTICS_COPY, HONESTY_COPY, STUDIO_COPY } from "../copy";
@@ -137,6 +140,13 @@ export function AnalyticsPage() {
 
       <RubricTrendChart points={data.scores} rubricLabel={rubricLabel} />
       <ScoreTrendChart points={data.scores} rubricLabel={rubricLabel} />
+      <TerminologyTrendChart points={data.scores} rubricLabel={rubricLabel} />
+      <ImportanceEvidenceChart
+        buckets={data.importance_evidence}
+        requirementCount={data.requirement_count}
+        rubricLabel={rubricLabel}
+      />
+      <RoleCoverageMatrix rows={data.role_coverage_matrix} rubricLabel={rubricLabel} />
       <EvidenceMixChart
         buckets={data.evidence}
         requirementCount={data.requirement_count}

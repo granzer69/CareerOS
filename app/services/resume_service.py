@@ -21,8 +21,10 @@ from app.schemas.analytics import (
     EditKindCount,
     EditStats,
     EvidenceBucket,
+    ImportanceEvidenceBucket,
     RequirementHeatCell,
     RoleBreakdown,
+    RoleCoverageRow,
     ScorePoint,
     TermCount,
     VersionDelta,
@@ -44,6 +46,8 @@ EVIDENCE_STATES: tuple[str, ...] = (
 MANDATORY_GAP_STATES: frozenset[str] = frozenset({"not_found", "contradicted"})
 MISSING_TERM_LIMIT: int = 15
 HEATMAP_CELL_LIMIT: int = 48
+ROLE_MATRIX_ROWS_PER_ROLE: int = 10
+IMPORTANCE_LEVELS: tuple[str, ...] = ("mandatory", "preferred", "contextual")
 
 MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
 MAX_JOB_DESCRIPTION_CHARS: int = 20_000
@@ -469,14 +473,16 @@ def _build_edit_stats(edits: list[object]) -> tuple[EditStats, list[EditKindCoun
     return stats, kinds
 
 
+def _int_score(row: object, field: str) -> int | None:
+    value = getattr(row, field, None)
+    return value if isinstance(value, int) else None
+
+
 def _readiness_score(row: object) -> int | None:
-    readiness = getattr(row, "application_readiness_score", None)
-    if isinstance(readiness, int):
+    readiness = _int_score(row, "application_readiness_score")
+    if readiness is not None:
         return readiness
-    overall = getattr(row, "overall_score", None)
-    if isinstance(overall, int):
-        return overall
-    return None
+    return _int_score(row, "overall_score")
 
 
 def _build_version_deltas(rows: list[object], versions: list[object]) -> list[VersionDelta]:
@@ -506,6 +512,12 @@ def _build_version_deltas(rows: list[object], versions: list[object]) -> list[Ve
                 delta=delta,
                 latest_version_number=int(getattr(latest, "version_number", 0)),
                 rubric_version=getattr(latest, "rubric_version", None),
+                original_job_fit=_int_score(row, "job_fit_score"),
+                latest_job_fit=_int_score(latest, "job_fit_score"),
+                original_alignment=_int_score(row, "resume_alignment_score"),
+                latest_alignment=_int_score(latest, "resume_alignment_score"),
+                original_terminology=_int_score(row, "ats_score"),
+                latest_terminology=_int_score(latest, "ats_score"),
             )
         )
     return sorted(deltas, key=lambda item: item.file_name.lower())
@@ -538,6 +550,65 @@ def _build_requirement_heatmap(rows: list[object]) -> list[RequirementHeatCell]:
     ]
 
 
+def _normalize_importance(value: object) -> str:
+    if isinstance(value, str) and value in IMPORTANCE_LEVELS:
+        return value
+    return "contextual"
+
+
+def _build_importance_evidence(
+    importance_counter: Counter[tuple[str, str]],
+) -> list[ImportanceEvidenceBucket]:
+    """Flatten importance × evidence counts in stable order."""
+    buckets: list[ImportanceEvidenceBucket] = []
+    for importance in IMPORTANCE_LEVELS:
+        for state in EVIDENCE_STATES:
+            count = importance_counter[(importance, state)]
+            if count:
+                buckets.append(
+                    ImportanceEvidenceBucket(importance=importance, state=state, count=count)
+                )
+    return buckets
+
+
+def _build_role_coverage_matrix(rows: list[object]) -> list[RoleCoverageRow]:
+    """Matrix rows: per target_role, top requirements with state counts."""
+    matrix: dict[tuple[str, str], Counter[str]] = defaultdict(
+        lambda: Counter({state: 0 for state in EVIDENCE_STATES})
+    )
+    for row in rows:
+        role = str(getattr(row, "target_role", "") or "Unknown")
+        for match in _as_match_dicts(getattr(row, "requirement_matches", None)):
+            text = match.get("text")
+            if not isinstance(text, str):
+                continue
+            requirement = text.strip()[:120]
+            if not requirement:
+                continue
+            state = _evidence_state(match.get("evidence_state"))
+            matrix[(role, requirement)][state] += 1
+    by_role: dict[str, list[tuple[str, Counter[str], int]]] = defaultdict(list)
+    for (role, requirement), states in matrix.items():
+        total = sum(states.values())
+        by_role[role].append((requirement, states, total))
+    output: list[RoleCoverageRow] = []
+    for role in sorted(by_role.keys()):
+        ranked = sorted(by_role[role], key=lambda item: (-item[2], item[0]))[:ROLE_MATRIX_ROWS_PER_ROLE]
+        for requirement, states, _total in ranked:
+            output.append(
+                RoleCoverageRow(
+                    target_role=role,
+                    requirement_text=requirement,
+                    confirmed=states["confirmed"],
+                    partial=states["partial"],
+                    not_found=states["not_found"],
+                    contradicted=states["contradicted"],
+                    unknown=states["unknown"],
+                )
+            )
+    return output
+
+
 def build_analytics(
     rows: list[object],
     *,
@@ -551,6 +622,7 @@ def build_analytics(
     not coerced to zero. Resume text is never copied onto the payload.
     """
     evidence_counts: Counter[str] = Counter({state: 0 for state in EVIDENCE_STATES})
+    importance_counter: Counter[tuple[str, str]] = Counter()
     term_counts: Counter[str] = Counter()
     role_stats: dict[str, dict[str, object]] = defaultdict(
         lambda: {
@@ -587,9 +659,10 @@ def build_analytics(
         for match in matches:
             state = _evidence_state(match.get("evidence_state"))
             evidence_counts[state] += 1
+            importance = _normalize_importance(match.get("importance"))
+            importance_counter[(importance, state)] += 1
             if state in stats:
                 stats[state] = int(stats[state]) + 1
-            importance = match.get("importance")
             if importance == "mandatory" and state in MANDATORY_GAP_STATES:
                 mandatory_gap_count += 1
         for term in _as_terms(getattr(row, "keywords_missing", None)):
@@ -607,6 +680,7 @@ def build_analytics(
             job_fit_score=getattr(row, "job_fit_score", None),
             resume_alignment_score=getattr(row, "resume_alignment_score", None),
             application_readiness_score=getattr(row, "application_readiness_score", None),
+            ats_score=_int_score(row, "ats_score"),
             rubric_version=getattr(row, "rubric_version", None),
             blocked_by_requirement=bool(getattr(row, "blocked_by_requirement", False)),
         )
@@ -641,6 +715,8 @@ def build_analytics(
     )
     version_deltas = _build_version_deltas(rows, versions or [])
     requirement_heatmap = _build_requirement_heatmap(rows)
+    importance_evidence = _build_importance_evidence(importance_counter)
+    role_coverage_matrix = _build_role_coverage_matrix(rows)
     return AnalyticsRead(
         analysis_count=len(rows),
         requirement_count=requirement_count,
@@ -656,4 +732,6 @@ def build_analytics(
         edit_kinds=edit_kinds,
         version_deltas=version_deltas,
         requirement_heatmap=requirement_heatmap,
+        importance_evidence=importance_evidence,
+        role_coverage_matrix=role_coverage_matrix,
     )

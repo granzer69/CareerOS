@@ -167,6 +167,7 @@ export interface ScorePoint {
   job_fit_score: number | null;
   resume_alignment_score: number | null;
   application_readiness_score: number | null;
+  ats_score?: number | null;
   rubric_version: string | null;
   blocked_by_requirement: boolean;
 }
@@ -201,6 +202,22 @@ export interface EditStats {
   supported_rewrite_accept_rate: number | null;
 }
 
+export interface ImportanceEvidenceBucket {
+  importance: string;
+  state: EvidenceState;
+  count: number;
+}
+
+export interface RoleCoverageRow {
+  target_role: string;
+  requirement_text: string;
+  confirmed: number;
+  partial: number;
+  not_found: number;
+  contradicted: number;
+  unknown: number;
+}
+
 export interface VersionDelta {
   analysis_id: string;
   file_name: string;
@@ -210,6 +227,12 @@ export interface VersionDelta {
   delta: number | null;
   latest_version_number: number | null;
   rubric_version: string | null;
+  original_job_fit: number | null;
+  latest_job_fit: number | null;
+  original_alignment: number | null;
+  latest_alignment: number | null;
+  original_terminology: number | null;
+  latest_terminology: number | null;
 }
 
 export interface RequirementHeatCell {
@@ -234,6 +257,8 @@ export interface AnalyticsRead {
   edit_kinds: EditKindCount[];
   version_deltas: VersionDelta[];
   requirement_heatmap: RequirementHeatCell[];
+  importance_evidence: ImportanceEvidenceBucket[];
+  role_coverage_matrix: RoleCoverageRow[];
 }
 
 export interface ApiError {

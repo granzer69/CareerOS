@@ -134,6 +134,7 @@ export const analyticsFixture: AnalyticsRead = {
       job_fit_score: 70,
       resume_alignment_score: 68,
       application_readiness_score: 72,
+      ats_score: 65,
       rubric_version: "v1.0.0",
       blocked_by_requirement: true,
     },
@@ -184,6 +185,27 @@ export const analyticsFixture: AnalyticsRead = {
       delta: 6,
       latest_version_number: 1,
       rubric_version: "v1.0.0",
+      original_job_fit: 70,
+      latest_job_fit: 74,
+      original_alignment: 68,
+      latest_alignment: 71,
+      original_terminology: 65,
+      latest_terminology: 70,
+    },
+  ],
+  importance_evidence: [
+    { importance: "mandatory", state: "confirmed", count: 1 },
+    { importance: "preferred", state: "not_found", count: 2 },
+  ],
+  role_coverage_matrix: [
+    {
+      target_role: "Backend Engineer",
+      requirement_text: "Python",
+      confirmed: 1,
+      partial: 0,
+      not_found: 0,
+      contradicted: 0,
+      unknown: 0,
     },
   ],
   requirement_heatmap: [
@@ -232,4 +254,6 @@ export const emptyAnalyticsFixture: AnalyticsRead = {
   edit_kinds: [],
   version_deltas: [],
   requirement_heatmap: [],
+  importance_evidence: [],
+  role_coverage_matrix: [],
 };

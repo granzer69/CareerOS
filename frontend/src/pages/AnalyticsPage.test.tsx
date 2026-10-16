@@ -54,6 +54,8 @@ describe("AnalyticsPage", () => {
     expect(screen.getAllByText("2").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Kubernetes").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Edit funnel" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Evidence by JD importance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /coverage matrix by role/i })).toBeInTheDocument();
     expect(screen.getAllByText("Data Engineer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getByRole("img", { name: /application-readiness trend/i })).toBeInTheDocument();

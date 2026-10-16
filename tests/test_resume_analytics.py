@@ -172,6 +172,8 @@ def test_analytics_empty_history_is_honest(
     assert body["edit_kinds"] == []
     assert body["version_deltas"] == []
     assert body["requirement_heatmap"] == []
+    assert body["importance_evidence"] == []
+    assert body["role_coverage_matrix"] == []
     assert {item["state"]: item["count"] for item in body["evidence"]} == {
         "confirmed": 0,
         "partial": 0,
@@ -261,6 +263,25 @@ def test_build_analytics_skips_null_readiness_instead_of_zeroing() -> None:
     payload = build_analytics([row])
     assert payload.scores[0].application_readiness_score is None
     assert payload.roles[0].avg_readiness is None
+
+
+def test_build_analytics_groups_importance_and_role_matrix() -> None:
+    """Mandatory vs preferred counts and role matrix rows come from requirement_matches."""
+    row = _row(
+        analysis_id=ANALYSIS_A,
+        created_at=CREATED_NEW,
+        requirement_matches=[
+            _match(evidence_state="confirmed", importance="mandatory", text="Python"),
+            _match(evidence_state="not_found", importance="preferred", text="Kubernetes"),
+        ],
+    )
+    payload = build_analytics([row])
+    assert any(
+        bucket.importance == "mandatory" and bucket.state == "confirmed"
+        for bucket in payload.importance_evidence
+    )
+    assert len(payload.role_coverage_matrix) == 2
+    assert payload.role_coverage_matrix[0].requirement_text in {"Python", "Kubernetes"}
 
 
 def test_build_analytics_computes_supported_rewrite_accept_rate() -> None:

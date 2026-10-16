@@ -22,9 +22,11 @@ export function VersionLiftTable({
             <tr>
               <th scope="col">File</th>
               <th scope="col">Role</th>
-              <th scope="col">Original</th>
-              <th scope="col">Latest v</th>
-              <th scope="col">Δ readiness</th>
+              <th scope="col">Readiness Δ</th>
+              <th scope="col">Fit (orig → latest)</th>
+              <th scope="col">Alignment</th>
+              <th scope="col">Terminology</th>
+              <th scope="col">Version</th>
             </tr>
           </thead>
           <tbody>
@@ -34,12 +36,19 @@ export function VersionLiftTable({
                   <Link to={`/analyses/${row.analysis_id}`}>{row.file_name}</Link>
                 </td>
                 <td>{row.target_role}</td>
-                <td>{row.original_readiness ?? "—"}</td>
-                <td>
-                  {row.latest_version_readiness ?? "—"}
-                  {row.latest_version_number !== null ? ` (v${row.latest_version_number})` : ""}
-                </td>
                 <td>{row.delta ?? "—"}</td>
+                <td>
+                  {row.original_job_fit ?? "—"} → {row.latest_job_fit ?? "—"}
+                </td>
+                <td>
+                  {row.original_alignment ?? "—"} → {row.latest_alignment ?? "—"}
+                </td>
+                <td>
+                  {row.original_terminology ?? "—"} → {row.latest_terminology ?? "—"}
+                </td>
+                <td>
+                  {row.latest_version_number !== null ? `v${row.latest_version_number}` : "—"}
+                </td>
               </tr>
             ))}
           </tbody>

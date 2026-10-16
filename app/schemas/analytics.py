@@ -26,6 +26,7 @@ class ScorePoint(BaseModel):
     job_fit_score: int | None = None
     resume_alignment_score: int | None = None
     application_readiness_score: int | None = None
+    ats_score: int | None = None
     rubric_version: str | None = None
     blocked_by_requirement: bool = False
 
@@ -89,6 +90,36 @@ class VersionDelta(BaseModel):
     delta: int | None = None
     latest_version_number: int | None = None
     rubric_version: str | None = None
+    original_job_fit: int | None = None
+    latest_job_fit: int | None = None
+    original_alignment: int | None = None
+    latest_alignment: int | None = None
+    original_terminology: int | None = None
+    latest_terminology: int | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class ImportanceEvidenceBucket(BaseModel):
+    """Requirement matches grouped by JD importance and evidence state."""
+
+    importance: str
+    state: str
+    count: int = Field(..., ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class RoleCoverageRow(BaseModel):
+    """One requirement row in a role-grouped coverage matrix."""
+
+    target_role: str
+    requirement_text: str
+    confirmed: int = Field(..., ge=0)
+    partial: int = Field(..., ge=0)
+    not_found: int = Field(..., ge=0)
+    contradicted: int = Field(..., ge=0)
+    unknown: int = Field(..., ge=0)
 
     model_config = {"extra": "forbid"}
 
@@ -121,5 +152,7 @@ class AnalyticsRead(BaseModel):
     edit_kinds: list[EditKindCount] = Field(default_factory=list)
     version_deltas: list[VersionDelta] = Field(default_factory=list)
     requirement_heatmap: list[RequirementHeatCell] = Field(default_factory=list)
+    importance_evidence: list[ImportanceEvidenceBucket] = Field(default_factory=list)
+    role_coverage_matrix: list[RoleCoverageRow] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}
