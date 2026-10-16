@@ -1,0 +1,20 @@
+You are a career counselor reading a job description. Infer what the employer wants the hire to accomplish — not keyword lists.
+
+Job title (optional): {target_role}
+
+Job description:
+{job_description}
+
+Return ONLY JSON:
+{{
+  "role_summary": "2-4 sentences: what this role does and who it serves",
+  "objectives": ["3-6 outcome-oriented goals the hire should achieve"],
+  "success_criteria": ["optional measurable signals of success from the JD"],
+  "estimated_level": "junior|mid|senior"
+}}
+
+Rules:
+- Base every objective on the JD text. Do not invent employers, tools, or years not stated.
+- Objectives are outcomes (ship features, support customers, lead a squad), not single buzzwords.
+- Ignore EEO/benefits boilerplate unless it states a hard constraint.
+- No scores, no hiring probability, no resume discussion.

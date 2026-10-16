@@ -7,6 +7,16 @@ from app.schemas.evidence import EvidenceState, ModelRequirement, RequirementMat
 from app.services.edit_grounding import short_skills
 
 _TOKEN_RE = re.compile(r"[a-z0-9+#.]{3,}")
+_TOKEN_ALIASES: dict[str, list[str]] = {
+    "javascript": ["js", "ecmascript"],
+    "typescript": ["ts"],
+    "kubernetes": ["k8s"],
+    "postgresql": ["postgres", "psql"],
+    "amazon web services": ["aws"],
+    "machine learning": ["ml"],
+    "artificial intelligence": ["ai"],
+}
+
 _STOPWORDS = {
     "and",
     "the",
@@ -44,7 +54,18 @@ def _tokens(text: str) -> list[str]:
     for skill in sorted(short_skills(text)):
         if skill not in found:
             found.append(skill)
-    return found
+    expanded = list(found)
+    haystack_norm = _normalize(text)
+    for token in found:
+        for alias in _TOKEN_ALIASES.get(token, []):
+            if alias not in expanded:
+                expanded.append(alias)
+        for canonical, aliases in _TOKEN_ALIASES.items():
+            if token in aliases and canonical not in expanded:
+                expanded.append(canonical)
+    if "amazon web services" in haystack_norm and "aws" not in expanded:
+        expanded.append("aws")
+    return expanded
 
 
 def _token_in_haystack(token: str, haystack: str) -> bool:

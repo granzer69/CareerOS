@@ -11,7 +11,9 @@ from app.ai.local_inference import (
     LocalModelNotFoundError,
     build_local_adapter,
 )
+from app.ai.local_inference import resolve_local_model_path
 from app.schemas.evidence import ModelExtraction
+from app.schemas.jd_insights import JDUnderstanding
 
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "jd_extraction.txt"
 _MAX_RETRIES = 2
@@ -27,13 +29,34 @@ def _escape_braces(value: str) -> str:
     return value.replace("{", "{{").replace("}", "}}")
 
 
-def _build_prompt(*, target_role: str, job_description: str, resume_text: str) -> str:
+def _format_understanding_block(understanding: JDUnderstanding | None) -> str:
+    if understanding is None:
+        return "(Run JD understanding first — none provided.)"
+    lines = [
+        f"Summary: {understanding.role_summary}",
+        "Objectives:",
+        *[f"- {item}" for item in understanding.objectives],
+    ]
+    if understanding.success_criteria:
+        lines.append("Success criteria:")
+        lines.extend(f"- {item}" for item in understanding.success_criteria)
+    return "\n".join(lines)
+
+
+def _build_prompt(
+    *,
+    target_role: str,
+    job_description: str,
+    resume_text: str,
+    understanding: JDUnderstanding | None = None,
+) -> str:
     """Build the extraction prompt from the saved template."""
     template = _load_prompt_template()
     return template.format(
         target_role=_escape_braces(target_role),
         job_description=_escape_braces(job_description),
         resume_text=_escape_braces(resume_text),
+        jd_understanding=_escape_braces(_format_understanding_block(understanding)),
     )
 
 
@@ -61,6 +84,7 @@ async def extract_requirements_with_model(
     resume_text: str,
     target_role: str,
     job_description: str,
+    understanding: JDUnderstanding | None = None,
     adapter: LocalInferenceAdapter | None = None,
 ) -> ModelExtraction:
     """
@@ -69,11 +93,14 @@ async def extract_requirements_with_model(
     Malformed JSON is retried once. Missing weights and inference failures are not
     retried and never fall back to a hosted provider.
     """
-    inference = adapter if adapter is not None else build_local_adapter()
+    inference = adapter if adapter is not None else build_local_adapter(
+        resolve_local_model_path("jd")
+    )
     prompt = _build_prompt(
         target_role=target_role,
         job_description=job_description,
         resume_text=resume_text,
+        understanding=understanding,
     )
     last_error: Exception | None = None
 

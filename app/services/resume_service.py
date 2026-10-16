@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.jd_pipeline import match_requirements_hybrid, understand_jd_with_model
 from app.ai.local_inference import LocalInferenceError, LocalModelNotFoundError
 from app.ai.resume_analyzer import extract_requirements_with_model
 from app.core.errors import DomainError
@@ -33,8 +34,8 @@ from app.schemas.analytics import (
     VersionDelta,
 )
 from app.schemas.evidence import ModelExtraction
+from app.schemas.jd_insights import JDInsightsRead, JDUnderstanding
 from app.schemas.resume_analysis import ResumeAnalysisRead, ResumeAnalysisSummary
-from app.services.evidence_matcher import match_requirements
 from app.services.jd_extraction import derive_target_role, extract_requirements, merge_requirements
 from app.services.scoring import score_application
 
@@ -216,11 +217,23 @@ class ResumeService:
         )
         deterministic = extract_requirements(cleaned_jd)
 
+        understanding: JDUnderstanding | None = None
+        try:
+            understanding = await understand_jd_with_model(
+                target_role=stored_role,
+                job_description=cleaned_jd,
+            )
+        except (LocalModelNotFoundError, LocalInferenceError) as exc:
+            logger.warning("JD understanding unavailable: %s", exc)
+        except ValueError as exc:
+            logger.warning("JD understanding JSON invalid: %s", exc)
+
         try:
             modeled = await extract_requirements_with_model(
                 resume_text=resume_text,
                 target_role=stored_role,
                 job_description=cleaned_jd,
+                understanding=understanding,
             )
         except LocalModelNotFoundError as exc:
             logger.exception("Local model weights are not available")
@@ -248,12 +261,29 @@ class ResumeService:
             deterministic=deterministic,
             modeled=modeled.requirements,
         )
-        matches = match_requirements(merged, resume_text)
+        matches, evidence_method = await match_requirements_hybrid(
+            requirements=merged,
+            resume_text=resume_text,
+            job_description=cleaned_jd,
+            understanding=understanding,
+        )
+        level_hint = modeled.estimated_level or (
+            understanding.estimated_level if understanding else None
+        )
         scored = score_application(
             matches=matches,
             resume_text=resume_text,
-            estimated_level_hint=modeled.estimated_level,
+            estimated_level_hint=level_hint,
         )
+
+        jd_insights: JDInsightsRead | None = None
+        if understanding is not None:
+            jd_insights = JDInsightsRead(
+                role_summary=understanding.role_summary,
+                objectives=understanding.objectives,
+                success_criteria=understanding.success_criteria,
+                evidence_method=evidence_method,  # type: ignore[arg-type]
+            )
 
         record = ResumeAnalysis(
             user_id=user_id,
@@ -277,6 +307,7 @@ class ResumeService:
             eligibility=[item.model_dump() for item in scored.eligibility],
             blocked_by_requirement=scored.blocked_by_requirement,
             completeness_included=scored.completeness_included,
+            jd_insights=jd_insights.model_dump() if jd_insights else None,
         )
         self._db_session.add(record)
         await self._db_session.commit()

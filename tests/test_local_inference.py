@@ -38,6 +38,12 @@ SAMPLE_JD = (
 )
 SAMPLE_RESUME = "Python engineer with FastAPI experience at Acme."
 VALID_EXTRACTION: dict[str, Any] = {"requirements": [], "estimated_level": "mid"}
+VALID_UNDERSTANDING: dict[str, Any] = {
+    "role_summary": "Backend engineer role focused on Python API delivery.",
+    "objectives": ["Build and maintain Python services"],
+    "success_criteria": [],
+    "estimated_level": "mid",
+}
 INVENTED_SCORES: dict[str, Any] = {
     "overall_score": 72,
     "grade": "B",
@@ -72,6 +78,7 @@ RESUME_READ_FIELDS = {
     "eligibility",
     "blocked_by_requirement",
     "completeness_included",
+    "jd_insights",
 }
 
 
@@ -80,6 +87,12 @@ class FakeAdapter:
         self._payload = payload
 
     async def complete(self, prompt: str) -> str:
+        if "requirement_index" in prompt:
+            return json.dumps({"matches": []})
+        if '"requirements"' in prompt and "evidence_state" not in prompt:
+            return self._payload
+        if "success_criteria" in prompt and "role_summary" in prompt:
+            return json.dumps(VALID_UNDERSTANDING)
         return self._payload
 
 
@@ -132,7 +145,7 @@ async def test_mocked_adapter_returns_resume_analysis_read_shape(
     """A mocked local completion persists rubric scores and the ResumeAnalysisRead contract."""
     _patch_extraction(mocker)
     mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
+        "app.ai.local_inference.build_local_adapter",
         return_value=FakeAdapter(json.dumps(VALID_EXTRACTION)),
     )
     db_session_mock.refresh.side_effect = _assign_persisted_fields
@@ -195,7 +208,7 @@ def test_adapter_exception_is_mapped_without_leaking_details(
     """Unexpected adapter errors map to 503 inference_failed without leaking internals."""
     _patch_extraction(mocker)
     mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
+        "app.ai.local_inference.build_local_adapter",
         return_value=RaisingAdapter(RuntimeError("prompt-secret")),
     )
 
@@ -222,7 +235,7 @@ async def test_invalid_json_falls_back_to_deterministic_jd(
     """Malformed model JSON still scores deterministic JD requirements."""
     _patch_extraction(mocker)
     mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
+        "app.ai.local_inference.build_local_adapter",
         return_value=FakeAdapter("not-json"),
     )
     db_session_mock.refresh.side_effect = _assign_persisted_fields
@@ -249,7 +262,7 @@ async def test_model_numeric_scores_are_rejected_but_deterministic_jd_still_scor
     """Invented score JSON from the model is ignored; rubric uses deterministic JD rows."""
     _patch_extraction(mocker)
     mocker.patch(
-        "app.ai.resume_analyzer.build_local_adapter",
+        "app.ai.local_inference.build_local_adapter",
         return_value=FakeAdapter(json.dumps(INVENTED_SCORES)),
     )
     db_session_mock.refresh.side_effect = _assign_persisted_fields
@@ -276,7 +289,7 @@ async def test_whitespace_job_description_is_rejected(
 ) -> None:
     """Whitespace-only JDs never reach inference or persistence."""
     _patch_extraction(mocker)
-    adapter = mocker.patch("app.ai.resume_analyzer.build_local_adapter")
+    adapter = mocker.patch("app.ai.local_inference.build_local_adapter")
     service = ResumeService(db_session=db_session_mock)
 
     with pytest.raises(ResumeJobDescriptionError) as exc:

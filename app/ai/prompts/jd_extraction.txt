@@ -1,5 +1,8 @@
 Extract structured job requirements from the job description ONLY. The resume is context to avoid duplicating requirements — never add skills that are not stated in the JD.
 
+Prior JD understanding (objectives — use to prioritize mandatory vs contextual lines):
+{jd_understanding}
+
 Job title (optional): {target_role}
 
 Job description:

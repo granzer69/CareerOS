@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     LOCAL_MODEL_PATH: str = ""
+    """Optional dedicated GGUF for JD understanding + extraction (defaults to LOCAL_MODEL_PATH)."""
+    LOCAL_MODEL_PATH_JD: str = ""
+    """Optional dedicated GGUF for semantic evidence matching (defaults to LOCAL_MODEL_PATH)."""
+    LOCAL_MODEL_PATH_EVIDENCE: str = ""
     LOCAL_MODEL_CONTEXT: int = Field(default=4096, ge=512, le=8192)
     LOCAL_MODEL_MAX_TOKENS: int = Field(default=4096, ge=16, le=8192)
     LOCAL_MODEL_TEMPERATURE: float = Field(default=0.0, ge=0.0, le=2.0)

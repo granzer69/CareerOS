@@ -60,7 +60,7 @@ def warm_local_model_weights() -> None:
     time behind a short reverse-proxy timeout.
     """
     try:
-        adapter = build_local_adapter()
+        adapter = build_local_adapter(settings.LOCAL_MODEL_PATH)
     except LocalModelNotFoundError:
         return
     if isinstance(adapter, LlamaCppAdapter):
@@ -68,9 +68,25 @@ def warm_local_model_weights() -> None:
             adapter._load_llama()
 
 
-def build_local_adapter() -> LocalInferenceAdapter:
-    """Build the configured local GGUF adapter after verifying the weight file exists."""
-    path = require_local_model_file(settings.LOCAL_MODEL_PATH)
+def resolve_local_model_path(role: str = "default") -> str:
+    """
+    Resolve which on-disk GGUF path to use for a pipeline stage.
+
+    Roles: default, jd (understanding + extraction), evidence (semantic matching).
+    """
+    if role == "jd":
+        candidate = settings.LOCAL_MODEL_PATH_JD.strip() or settings.LOCAL_MODEL_PATH.strip()
+    elif role == "evidence":
+        candidate = settings.LOCAL_MODEL_PATH_EVIDENCE.strip() or settings.LOCAL_MODEL_PATH.strip()
+    else:
+        candidate = settings.LOCAL_MODEL_PATH.strip()
+    return candidate
+
+
+def build_local_adapter(model_path: str | None = None) -> LocalInferenceAdapter:
+    """Build a local GGUF adapter after verifying the weight file exists."""
+    path_str = (model_path or settings.LOCAL_MODEL_PATH).strip()
+    path = require_local_model_file(path_str)
     return LlamaCppAdapter(
         model_path=path,
         n_ctx=settings.LOCAL_MODEL_CONTEXT,

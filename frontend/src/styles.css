@@ -590,6 +590,27 @@ pre {
   margin-top: 0;
 }
 
+.jd-insights {
+  margin: 20px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.jd-insights h2 {
+  margin: 0 0 8px;
+}
+
+.jd-insights h3 {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.jd-insights ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+
 .auth-layout,
 .analyze-layout {
   display: grid;

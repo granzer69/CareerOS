@@ -69,6 +69,7 @@ class ResumeAnalysis(Base):
         nullable=False,
         default=False,
     )
+    jd_insights: Mapped[dict | None] = mapped_column(JsonColumn, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
