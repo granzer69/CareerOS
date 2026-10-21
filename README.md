@@ -59,7 +59,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 ## Key engineering decisions
 
 - **Local inference only**: no Anthropic/OpenAI/Gemini keys or cloud fallback in the runtime
-- **Missing weights fail closed**: analyze uses deterministic JD parsing and lexical matching (no hosted LLM); edit generation returns 503 `model_unavailable`; `/health` and auth keep running
+- **Missing weights degrade safely**: analyze uses deterministic JD parsing and lexical matching (no hosted LLM); edit generation returns 503 `model_unavailable`; `/health` and auth keep running
 - **Structured model output**: extraction JSON is validated with Pydantic (`extra=forbid`); numeric scores are rejected; malformed JSON triggers a bounded retry
 - **Deterministic scoring**: job-fit, alignment, and readiness come from rubric `v1.0.0`; `overall_score` is application-readiness; `ats_score` is terminology coverage, not a vendor ATS
 - **Prompt as file**: extraction and edit prompts kept under `app/ai/prompts/` for inspectability
