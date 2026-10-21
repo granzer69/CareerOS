@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Vite proxies `/api` and `/health` to `http://127.0.0.1:8000`. Sign in, upload a PDF/DOCX, paste a job description, and read rubric scores. Missing GGUF weights show as `model_unavailable`; the UI does not call a hosted LLM.
+Vite proxies `/api` and `/health` to `http://127.0.0.1:8000`. Sign in, upload a PDF/DOCX, paste a job description, and read rubric scores. When `/health` reports `local_model: missing`, the signed-in shell shows a warning banner (`HONESTY_COPY.modelMissing` in `App.tsx`): scores still come from deterministic JD parsing and rubric v1.0.0. Analyze completes without that error. Edit generation calls the API and surfaces HTTP 503 `model_unavailable` via `actionableMessage` in `api.ts`. The UI does not call a hosted LLM.
 
 To refresh the bundle FastAPI serves in non-production:
 

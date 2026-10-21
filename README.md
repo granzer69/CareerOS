@@ -10,7 +10,7 @@ CareerOS helps a user upload a resume, paste a job description, and receive thre
 
 `POST /api/v1/resume/analyze` requires a Bearer JWT, a resume file, `target_role`, and `job_description`. Analyses are stored under the token subject. History, edits, and versions are owner-scoped. Legacy rows with a NULL `user_id` are not listed or readable. The frontend source in `frontend/src` is a signed-in campus resume studio: register/login, upload a resume, paste a JD, inspect evidence and scores, review grounded edits, and read owner-scoped analytics. Build it with `npm run build` in `frontend/`. Do not hand-edit `frontend/dist`.
 
-If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze and edit generation return HTTP 503 `model_unavailable` and do not call a hosted provider.
+If `LOCAL_MODEL_PATH` is unset or the weight file is missing, analyze still returns rubric scores from deterministic JD requirements and lexical evidence matching. Edit generation returns HTTP 503 `model_unavailable`. The API does not call a hosted provider.
 
 ## Architecture
 
@@ -59,7 +59,7 @@ Also listed in requirements (available for extension): ChromaDB, Redis — not r
 ## Key engineering decisions
 
 - **Local inference only**: no Anthropic/OpenAI/Gemini keys or cloud fallback in the runtime
-- **Missing weights fail closed**: analyze returns 503; `/health` and auth keep running
+- **Missing weights degrade safely**: analyze uses deterministic JD parsing and lexical matching (no hosted LLM); edit generation returns 503 `model_unavailable`; `/health` and auth keep running
 - **Structured model output**: extraction JSON is validated with Pydantic (`extra=forbid`); numeric scores are rejected; malformed JSON triggers a bounded retry
 - **Deterministic scoring**: job-fit, alignment, and readiness come from rubric `v1.0.0`; `overall_score` is application-readiness; `ats_score` is terminology coverage, not a vendor ATS
 - **Prompt as file**: extraction and edit prompts kept under `app/ai/prompts/` for inspectability
